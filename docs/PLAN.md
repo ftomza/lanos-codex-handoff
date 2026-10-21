@@ -45,3 +45,14 @@ Acceptance: documented architecture decision and Android test checklist.
 3. Read `03` and preserve DTCs; never clear without explicit separate request.
 4. If port absent, report macOS transport limitation; try compatible Android or USB K-Line interface before concluding ECU is unsupported.
 5. If adapter answers AT but ECU does not answer Mode 01, identify ECU and investigate vendor-specific K-Line protocol; do not guess unsupported commands.
+
+## M6 — Fuel computer (simulation first)
+- Add fuel-flow estimation strategies behind an interface: direct ECU fuel-rate PID when actually supported, MAF-based estimation, speed-density using MAP/IAT/RPM with calibrated volumetric efficiency, and injector pulse-width strategy only with verified injector characteristics and ECU telemetry. Do not assume MR-140 exposes any specific PID.
+- Track units and provenance (measured vs estimated), confidence/availability, timestamps, calibration factor, and engine-off/fuel-cut behavior. MAF stoichiometric estimates are approximations, especially during enrichment, deceleration, and open-loop operation.
+- Calculate instantaneous consumption in L/h and L/100 km only when speed is reliably above a configurable low-speed threshold; at idle/low speed show L/h instead of dividing by near-zero speed.
+- Integrate consumed liters and traveled kilometers using monotonic elapsed time and valid samples. Persist since-reset trip totals and reset timestamp across restarts, with explicit user-initiated reset; never silently reset on engine restart.
+- Compute average L/100 km as 100 * cumulative liters / cumulative kilometers only when distance is meaningful. Expose fuel used, distance since reset, average, instantaneous and estimator status in API and dashboard.
+- Handle stale/disconnected samples, gaps, missing PIDs, unrealistic spikes, clock changes and process restart without inventing fuel use or distance. Report incomplete coverage of trips.
+- Support user calibration from measured full-to-full refueling, with validation and a reversible calibration factor; avoid claiming fuel figures are exact.
+- Provide deterministic simulator fixtures and unit/integration tests for idle, motion, reset, persistence, missing data, disconnects, calibration and zero-speed edge cases.
+Acceptance: fuel computer works end-to-end in simulator with persisted resettable trip totals and transparent estimated/unknown states. Live accuracy and ECU PID support remain pending hardware verification. Implement after M3/M4 as appropriate; no ECU writes.
