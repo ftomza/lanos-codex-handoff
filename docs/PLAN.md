@@ -56,3 +56,12 @@ Acceptance: documented architecture decision and Android test checklist.
 - Support user calibration from measured full-to-full refueling, with validation and a reversible calibration factor; avoid claiming fuel figures are exact.
 - Provide deterministic simulator fixtures and unit/integration tests for idle, motion, reset, persistence, missing data, disconnects, calibration and zero-speed edge cases.
 Acceptance: fuel computer works end-to-end in simulator with persisted resettable trip totals and transparent estimated/unknown states. Live accuracy and ECU PID support remain pending hardware verification. Implement after M3/M4 as appropriate; no ECU writes.
+
+## Scope decision — OBD-only first (2026-10-21)
+- Current scope is read-only data obtainable through Vgate iCar Pro Bluetooth 3.0 and the vehicle ECU; do not implement ESP32, vehicle wiring taps, auxiliary sensors, or body-signal hardware.
+- Discovery phase: record supported Mode 01 PID bitmaps (0100, 0120, 0140 etc. only where indicated), supported DTC/identification modes, protocol and raw responses. Distinguish adapter voltage from ECU-reported battery voltage.
+- Prioritize RPM, speed, coolant temperature, voltage and DTC; then MAP, IAT, throttle, load, oxygen-sensor data, trims; explore fuel rate/injector timing/ECU identifiers only when supported and documented. Avoid indiscriminate proprietary requests or any write commands.
+- Expose per-signal capability and freshness: supported, unsupported, not-yet-tested, temporarily-unavailable. Do not conflate these states.
+- Turn signals, lights, parking brake, fuel level and other body signals are out of scope unless proven available via read-only diagnostic responses; do not infer or fabricate them.
+- Fuel computer (M6) remains in scope with estimator provenance, calibration and persistent since-reset totals; disable calculation gracefully when input telemetry is insufficient.
+- Hardware compatibility and available PIDs are unknown until physical testing. Document raw observations and update capability matrix afterward.
