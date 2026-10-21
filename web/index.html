@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101815">
+  <title>Lanos · Приборная панель</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.mjs"></script>
+</head>
+<body>
+  <main class="dashboard">
+    <header class="header">
+      <div class="identity"><span class="brand-mark" aria-hidden="true">L</span><div><p class="eyebrow">CHEVROLET / 1.5 8V</p><h1>LANOS <span>dashboard</span></h1></div></div>
+      <div class="header-status"><span id="source" class="source-badge">SIMULATOR</span><span id="connection" class="connection" role="status">Ожидание данных</span></div>
+    </header>
+    <aside class="demo-notice"><span class="notice-icon" aria-hidden="true">i</span><div><strong>Демонстрационный режим</strong><span>Все показания смоделированы. Автомобиль не подключён.</span></div><span class="demo-tag">DEMO</span></aside>
+    <section class="instruments" aria-label="Основные приборы">
+      <article class="card speed-card">
+        <div class="card-heading"><h2>Скорость</h2><span class="instrument-code">01 / SPEED</span></div>
+        <div class="speed-dial">
+          <svg class="speed-arc" viewBox="0 0 320 190" aria-hidden="true"><path class="arc-track" d="M 30 160 A 130 130 0 0 1 290 160" pathLength="100"/><path id="speed-arc" class="arc-value" d="M 30 160 A 130 130 0 0 1 290 160" pathLength="100"/></svg>
+          <div class="speed-reading"><span id="speed" class="speed-value">—</span><span class="unit">км/ч</span></div>
+          <div class="dial-scale"><span>0</span><span>80</span><span>160</span></div>
+        </div>
+        <p id="driving-state" class="card-note">Ожидание первого измерения</p>
+      </article>
+      <article class="card rpm-card">
+        <div class="card-heading"><h2>Обороты двигателя</h2><span class="instrument-code">02 / RPM</span></div>
+        <div class="rpm-reading"><span id="rpm">—</span><span class="unit">об/мин</span></div>
+        <div id="rpm-bars" class="rpm-bars" aria-hidden="true"></div>
+        <div class="rpm-scale"><span>0</span><span>3 000</span><span>6 000</span></div>
+        <div class="rpm-footer"><span class="small-dot"></span><span>Данные демонстрационного цикла</span></div>
+      </article>
+    </section>
+    <section class="secondary" aria-label="Температура и напряжение">
+      <article class="card small-card"><div><h2>Охлаждающая жидкость</h2><p id="coolant-note">Нет данных</p></div><div class="small-reading"><span id="coolant">—</span><span class="unit">°C</span></div></article>
+      <article class="card small-card"><div><h2>Напряжение адаптера</h2><p id="voltage-note">Нет данных</p></div><div class="small-reading"><span id="voltage">—</span><span class="unit">В</span></div></article>
+    </section>
+    <section id="health-panel" class="health-panel" data-health="connecting" aria-label="Состояние данных">
+      <div class="health-copy"><span id="health-title" class="health-title" role="status">Подключение к источнику</span><p id="health-detail">Ожидаем первые показания симулятора.</p></div>
+      <button id="reconnect" type="button" hidden>Повторить подключение</button>
+      <dl class="timestamps"><div><dt>Измерено</dt><dd id="captured">—</dd></div><div><dt>Получено</dt><dd id="received">—</dd></div></dl>
+    </section>
+    <p id="warnings" class="warnings" role="alert" hidden></p>
+    <footer><span>LANOS <span class="footer-divider">/</span> Локальная приборка</span><span>Не заменяет штатные приборы автомобиля</span></footer>
+    <noscript><p class="warnings">Для обновления приборов включите JavaScript. Показания недоступны.</p></noscript>
+  </main>
+</body>
+</html>
