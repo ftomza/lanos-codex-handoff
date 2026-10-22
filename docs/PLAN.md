@@ -65,3 +65,9 @@ Acceptance: fuel computer works end-to-end in simulator with persisted resettabl
 - Turn signals, lights, parking brake, fuel level and other body signals are out of scope unless proven available via read-only diagnostic responses; do not infer or fabricate them.
 - Fuel computer (M6) remains in scope with estimator provenance, calibration and persistent since-reset totals; disable calculation gracefully when input telemetry is insufficient.
 - Hardware compatibility and available PIDs are unknown until physical testing. Document raw observations and update capability matrix afterward.
+
+## ADAS vision track — A0–A6 (parallel research, not part of OBD-only vehicle integration)
+- See [docs/ADAS.md](ADAS.md) for detailed architecture, milestones, tests, safety constraints and Codex starting task.
+- USB UVC camera + MacBook M3 for development; Python/OpenCV vision service feeds read-only events to existing Go dashboard. Start with offline recorded video and A0 capture/replay tests.
+- A1 lane marking detection; A2 traffic sign recognition; A3 object detection/tracking; A4 experimental proximity/TTC; A5 dashboard fusion; A6 deployment feasibility.
+- The OBD-only scope decision applies to vehicle telemetry and wiring. ADAS is a separate optical sensor research track; no vehicle control, no ECU writes, no production driver alerts.
