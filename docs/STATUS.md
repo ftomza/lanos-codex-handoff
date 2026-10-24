@@ -22,8 +22,12 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
-Use the owner's confirmed IOS-Vlink GATT channels for the next BLE transport
-implementation, behind the existing elm327.Transport; retain SPP as an alternative.
+Current scope clarified by the user: fix the Go diagnostic utility obdprobe
+first; dashboard/live Source integration is a later task. Proposed CLI BLE design
+is in docs/superpowers/specs/2026-10-24-obdprobe-ble-design.md, awaiting review of
+the existing Python/bleak bridge runtime versus a native backend. No Go code has
+been changed for this follow-up yet.
+Use the confirmed IOS-Vlink GATT channels behind elm327.Transport and retain SPP.
 The previous request for the Python/SPP environment no longer blocks this path.
 Select the macOS BLE backend and obtain approval if new dependencies are needed;
 do not change go.mod or claim a BLE CLI already exists. Follow with M4 live
@@ -336,3 +340,18 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   Next: verify voltage independently, then continue BLE/M4 work separately.
 - Documentation checks: `make lint` (go vet and formatting) and
   `git diff --check` passed. No production behavior changed.
+
+### 2026-10-24 — scope clarification: utility before dashboard
+
+- User requested the application change, then clarified that the current focus
+  is our utility. Narrowed work to BLE support in Go obdprobe, preserving the
+  existing common ELM session/probe/report logic. Dashboard/M4 stays separate.
+- Inspected CLI selection, serial factory, initialization, recovery, metadata,
+  export and UI boundaries. No production code or dependency changes.
+- Prepared concrete design with CLI flags, observed GATT profile, process
+  lifecycle/deadline rules, transport bounds, report provenance and test coverage:
+  docs/superpowers/specs/2026-10-24-obdprobe-ble-design.md. Recommended an
+  embedded transport-only bridge to the existing bleak environment, with no Go
+  module changes. Native Go BLE needs separate dependency approval/backend work.
+- Await design/runtime choice before implementation, as required by the
+  brainstorming skill. `git diff --check` passed; code/tests are unchanged.
