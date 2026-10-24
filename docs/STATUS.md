@@ -26,6 +26,10 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
+New requested work: prepare a native Go trip recorder for fuel-computer research.
+Proposed design: docs/superpowers/specs/2026-10-24-trip-recorder-design.md;
+awaiting owner review before implementation. No recording command exists yet.
+
 The requested Go utility fix is implemented and physically verified for a BLE
 baseline and a supported-PID scan. Build both binaries with make build-obdprobe; use
 bin/obdprobe --transport=ble --ble-name=IOS-Vlink --retries=0 with a fresh output
@@ -463,3 +467,22 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   are offline; no additional Bluetooth session was started by verification.
 - Next: independent voltage measurement, optional offline semantic decoders,
   then planned native Go endurance/reconnect/stale tests before M4 integration.
+
+### 2026-10-24 — proposed trip recorder for fuel-computer research
+
+- User requested an unattended grabber to start before a future drive. Reviewed
+  existing CLI, probe lifecycle, capability/decoder boundaries and M6 requirements.
+- Prepared a proposed design extending native Go obdprobe with explicit --record,
+  capability-gated scheduled polling, private incremental JSONL, command timing,
+  raw responses, bounded recovery, recording gaps and graceful termination.
+  Defaults proposed: current MacBook/BLE, 4h bound, 256 MiB file-size limit.
+- Core inputs: RPM/MAP/speed; supporting IAT, coolant, throttle, fuel-system
+  status, trims, O2, load, timing, MIL and adapter voltage. No fuel estimate or
+  dashboard integration in this utility follow-up. Logs alone cannot calibrate
+  fuel volume: independent full-to-full refueling and odometer data are needed.
+- Design self-review checked scheduling overload, no catch-up bursts, bounded
+  memory/file/retry behavior, prompt recovery, existing CLI compatibility and
+  separation of host timestamps from ECU capture times.
+- Await owner review as required by the brainstorming skill. No production code,
+  dependency changes or hardware access. No new tests run for this design-only
+  change; git diff --check passed. User test.py/test2.py remain untouched.
