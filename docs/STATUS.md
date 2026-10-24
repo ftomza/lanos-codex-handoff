@@ -4,16 +4,21 @@
 M0–M3 complete. The dashboard remains simulator-only. The new Go read-only
 obdprobe provides macOS serial, ELM framing/recovery, capability discovery,
 PID/DTC decoding, bounded reconnect and private JSON export, verified offline.
-Issue #1 records the user's physical session on 2026-10-24; the new Go probe
-itself has not been physically tested.
+Issue #1 records the user's successful physical session on 2026-10-24. A later
+physical test of the Go probe opened the port but received no ATZ response;
+successful Go adapter/ECU communication remains unverified. Bluetooth dropped
+even while a diagnostic helper held the port open without sending commands.
 
 Owner correction: the device is **Vgate iCar Pro BLE 4.0 Dual**. Classic SPP
 through /dev/cu.Android-Vlink on MacBook M3 is confirmed in the owner's comment.
 Current transport remains Serial/SPP; BLE GATT awaits actual discovery.
 
 ## Next action
-Follow docs/NEXT_CONNECTION.md for baseline and supported-PID reports on the
-parked car. Preserve raw data; verify 0120, 0101, ATRV and advertised MAP/IAT/
+Resolve the adapter/SPP connection first: ignition is on, engine is off, other
+OBD applications are closed, and the user was asked to power-cycle the adapter
+and check its power indicator. Await that observation before another probe.
+Then follow docs/NEXT_CONNECTION.md for baseline and supported-PID reports on
+the parked car. Preserve raw data; verify 0120, 0101, ATRV and advertised MAP/IAT/
 trim/O2 readings. Then implement M4 as a separate live Source task, without
 substituting simulator values for missing vehicle data.
 
@@ -28,7 +33,8 @@ substituting simulator values for missing vehicle data.
 - MacBook M3 is development host; Android Teclast P85 is target.
 - Issue #1 observed /dev/cu.Android-Vlink, ELM327 v2.3 identity and A5 (KWP2000
   fast init). Ignition changes can break Bluetooth; future connectivity/recovery
-  is not guaranteed. Android SPP and the new Go serial code need physical tests.
+  is not guaranteed. Android SPP is untested; Go serial communication has been
+  attempted physically but has not yet received any adapter response.
 - ECU identity remains unconfirmed. BE3EB811 and RPM/coolant/speed/Mode 03
   responses are known; higher ranges and other readings remain pending.
 - Baud was not recorded in Issue #1; 38400/9600 remain explicit options.
@@ -174,3 +180,42 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
 - No Go version/dependency changes, hardware access or new blocker. User's
   untracked test.py remains untouched. Continue with the manual SPP session;
   BLE service/characteristic discovery is a separate future task.
+
+### 2026-10-24 — physical attempt, ignition on / engine off
+
+- User authorized read-only testing on the parked car, confirmed ignition on
+  with engine off, and manually reconnected Android-Vlink. Later reported
+  Bluetooth connects and disconnects after about 15 seconds. Other OBD
+  applications are closed according to the user.
+- Built /private/tmp/lanos-obdprobe-live. First sandboxed 38400-baud attempt
+  could not open the device (operation not permitted); no commands were sent.
+  Repeated with approved serial access: port opened, ATZ timed out with no raw
+  bytes; bounded recovery/reopen attempts also received no bytes. A separate
+  9600-baud attempt with no retries likewise received no ATZ response.
+- Separate adapter-only helper: 38400 baud, 2s post-open pause, ATZ with 3s
+  timeout also returned no bytes. This does not establish a settling-delay fix.
+- Passive helper held the port open for 25s and sent zero bytes. Filtered
+  system_profiler SPBluetoothDataType -json observations showed Android-Vlink
+  not connected at +0.09s, connected at +10.16s, then not connected at +20.18s,
+  before the helper closed the port. Thus that observed disconnect was not
+  caused by closing the test process or sending ATZ. Exact disconnect time and
+  underlying cause remain unknown.
+- One controlled follow-up waited until macOS listed device_connected (+7.8s)
+  before attempting ATZ with an 8s deadline. Again no raw bytes were received.
+  Bluetooth-connected state alone does not establish a working SPP data path.
+- lsof found no owner of the port after probes finished. This does not rule
+  out all competing clients at other times. Python serial module is unavailable;
+  no dependencies installed and the user's test.py was not executed or changed.
+- Private, exclusive-create diagnostic reports are preserved in ignored
+  diagnostics/ignition-on-20261024-*.json; no raw reports added to Git. Temporary
+  diagnostic Go source removed. All test processes finished and ports closed.
+- No ECU requests reached execution: no new PID, voltage, protocol or DTC
+  observations. Empty untested DTC fields do not mean no stored DTCs. ECU
+  identity/compatibility cannot be inferred from these transport failures.
+- Blocker: adapter/SPP communication; no production fix applied without evidence.
+  Next: user power-cycles Vgate and checks power stability; one bounded
+  adapter-only check before any baseline/scan. Do not start the engine merely
+  to diagnose Bluetooth, and do not run repeated long recovery loops.
+- After removing the temporary helper, `go test ./... -count=1`, `make lint`
+  (including go vet and formatting check) and `git diff --check` passed.
+  Persistent changes in this follow-up are documentation only.
