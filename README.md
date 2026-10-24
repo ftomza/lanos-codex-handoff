@@ -21,7 +21,7 @@ are in capabilities.md. Simultaneous Classic/BLE links remain unverified.
 
 ## Development
 
-Requires Go 1.24 or newer. No external Go modules, network, database, frontend
+Requires Go 1.27 or newer. No external Go modules, network, database, frontend
 build system, or cloud are required.
 
 ```sh

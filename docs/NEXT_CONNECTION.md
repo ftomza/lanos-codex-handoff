@@ -45,7 +45,7 @@ go build -o bin/obdprobe ./cmd/obdprobe
 ./bin/obdprobe --help
 ```
 
-Нужен Go 1.24+. Зависимости не добавлены. Для настоящего serial нужен macOS;
+Нужен Go 1.27+. Зависимости не добавлены. Для настоящего serial нужен macOS;
 остальные платформы поддерживают offline-тесты и сборку. Python/stty/сторонние
 serial-утилиты для работы probe не требуются.
 

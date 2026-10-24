@@ -1,3 +1,3 @@
 module gitlab.ozon.ru/ftomza/lanos-dashboard
 
-go 1.24.0
+go 1.27.0

@@ -24,13 +24,14 @@ stability.
 ## Next action
 Current scope clarified by the user: fix the Go diagnostic utility obdprobe
 first; dashboard/live Source integration is a later task. Proposed CLI BLE design
-is in docs/superpowers/specs/2026-10-24-obdprobe-ble-design.md, awaiting review of
-the existing Python/bleak bridge runtime versus a native backend. No Go code has
-been changed for this follow-up yet.
+is in docs/superpowers/specs/2026-10-24-obdprobe-ble-design.md. User chose native
+Go BLE and approved Go 1.27; the version directive is updated. Recommended
+library is tinygo.org/x/bluetooth v0.16.0, awaiting approval to add this dependency
+and its transitives. No BLE implementation code has been changed yet.
 Use the confirmed IOS-Vlink GATT channels behind elm327.Transport and retain SPP.
 The previous request for the Python/SPP environment no longer blocks this path.
-Select the macOS BLE backend and obtain approval if new dependencies are needed;
-do not change go.mod or claim a BLE CLI already exists. Follow with M4 live
+Use the selected macOS BLE backend after dependency approval; do not claim a BLE
+CLI already exists. Follow with M4 live
 Source, measured polling latency/rate, freshness and bounded reconnect tests.
 Before the next physical run, confirm the current engine/ignition state afresh;
 the newest owner evidence includes engine-running tests performed separately.
@@ -355,3 +356,24 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   module changes. Native Go BLE needs separate dependency approval/backend work.
 - Await design/runtime choice before implementation, as required by the
   brainstorming skill. `git diff --check` passed; code/tests are unchanged.
+
+### 2026-10-24 — native Go BLE library selection and approved version upgrade
+
+- User rejected the Python bridge, requested native Go BLE, then explicitly
+  authorized upgrading the project to Go 1.27. Updated go.mod to go 1.27.0;
+  installed compiler is go1.27.2 darwin/arm64, CGO enabled, Xcode/clang available.
+- Compared upstream docs/releases and versioned module metadata. Recommended
+  tinygo.org/x/bluetooth v0.16.0 (Go >=1.25), with macOS CoreBluetooth support
+  and repeated Adapter.Enable fix. v0.15.0 was compatible with the old minimum
+  but lacks that fix. go-ble/ble explicitly does not actively maintain macOS.
+- Updated the written design to native Go. Library initializes CoreBluetooth
+  managers at package init and some blocking APIs lack contexts, so isolate it
+  in our native Go helper started only for explicit BLE. Main CLI/offline tests
+  retain no implicit Bluetooth access. This is a Go build, without Python.
+- No new dependency added/downloaded yet. Await approval of the pinned library
+  and its transitives before modifying dependency requirements. No hardware
+  queries or native compatibility claims. Dashboard/M4 remains separate.
+- Upgrade verification passed: go test ./... -count=1; go test -race ./...;
+  make lint (including go vet and gofmt check); go build ./...; make test-web
+  (11 tests); git diff --check. Build emitted a nonfatal sandbox stat-cache write
+  warning; all commands exited 0. No source/test changes or new modules.
