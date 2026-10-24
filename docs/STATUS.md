@@ -15,6 +15,11 @@ New owner comments confirm BLE GATT discovery and real ECU responses on MacBook
 M3: three engine-off and three engine-running sessions without re-pairing.
 BLE is now the priority direction; current Go code still implements Serial/SPP
 only. Android, Go BLE and sustained reliability remain unverified.
+The agent also repeated three successful engine-running BLE sessions using the
+existing Python environment and the user's unchanged test2.py, followed by
+60.17s of continuous RPM/coolant polling without observed errors or disconnects.
+This verifies that diagnostic Python path, not the Go implementation or long-run
+stability.
 
 ## Next action
 Use the owner's confirmed IOS-Vlink GATT channels for the next BLE transport
@@ -261,3 +266,47 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
 - Verification: `make lint` (go vet and formatting) and `git diff --check`
   passed; independently recalculated reported RPM/coolant and mean RPM using
   Python stdlib. Documentation only; no new live tests or Go behavior changes.
+
+### 2026-10-24 — agent BLE test, engine running
+
+- User confirmed the engine was running after agreeing to a stationary test.
+  Used existing .venv/bin/python with bleak 3.0.2; installed no packages and
+  changed neither user test.py nor test2.py. No SPP client or simulator started.
+- Ran unchanged test2.py with unbuffered output through a 150s outer deadline
+  and exclusive-create 0600 timestamped local log. Three BLE connect/query/
+  disconnect sessions completed normally, without re-pairing, errors or timeouts.
+  Commands: ATE0, ATL0, ATSP0, 0100, ATDPN, 0105, 010C. No ECU writes/clears.
+- All three returned 0100=BE3EB811 and ATDPN=A5. Session 1: 0105=41055A
+  (50°C), 010C=410C0DF2 (892.5 RPM). Session 2: 41055B (51°C), 410C0DE0
+  (888 RPM). Session 3: 41055B (51°C), 410C0D73 (860.75 RPM).
+- Exact response strings including CR/prompt, log receipt timestamps and
+  session lifecycle are preserved privately in
+  diagnostics/engine-on-ble-20261024T123131Z-sessions.log. These are physical
+  observations made by the agent, unlike the earlier owner comment summaries.
+- Followed with one continuous BLE connection using a temporary diagnostic
+  variant in ignored diagnostics/, derived from unchanged test2.py. Validated
+  the expected BE3EB811 bitmap before polling only 010C and 0105. Used a 60s
+  loop, 0.2s pause per RPM iteration, coolant every fifth RPM, 3s measurement
+  deadlines and a 120s process bound. No retries after command timeout in this
+  single-session experiment. No production transport/parser was implemented.
+- Continuous window 12:33:17.839–12:34:18.010 UTC (60.171s): 117 RPM responses
+  and 23 coolant responses; no timeout/error/disconnect observed. RPM range
+  829.5–908, mean 866.635; coolant 57→62°C. Observed rates with this schedule:
+  RPM 1.944 Hz, all measurements 2.327 responses/s. These are not maximum ECU
+  throughput claims. Initial 0100/SEARCHING took 5.129s outside that window.
+- Measurement command elapsed times (monotonic, GATT write through prompt):
+  median 249.4ms, p95 324.2ms (nearest rank), range 246.7–374.3ms. Raw response
+  log timestamps mark wrapper receipt, not ECU capture time. Private artifacts:
+  diagnostics/engine-on-ble-20261024T123309Z-continuous.py, corresponding .log,
+  and diagnostics/engine-on-ble-20261024T123309Z-summary.json (all 0600).
+- Offline analysis checked raw payload lengths/PID headers, prompt completion,
+  decoded values, counts, clean session closure and absence of reported errors.
+  Both processes exited 0 and closed their BLE connections. Told the user the
+  test was finished and engine could be stopped; no further hardware queries.
+- Limits: no deliberate disconnect/stale injection, engine restart, extended
+  endurance, Android, new PID range or DTC tests. SPP root cause remains unknown.
+  Next remains BLE transport + M4 with shared ELM logic, capability gating and
+  freshness/reconnect tests. Do not label the Python experiment a Go live Source.
+- Verification after documentation updates: `go test ./... -count=1`,
+  `make lint` (go vet and formatting) and `git diff --check` passed. Repository
+  changes are documentation only; raw reports/scripts remain private and ignored.

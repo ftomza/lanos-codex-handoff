@@ -6,6 +6,9 @@ Issue #1 records successful owner Vgate/KWP2000 tests over SPP and BLE, includin
 nonzero engine RPM over BLE. The Go probe passed offline tests but received no
 ATZ response during its physical SPP attempt. Successful Go communication and
 the exact ECU model (possibly Delphi MR-140) remain unverified.
+An agent-run Python BLE test also completed three engine-running sessions and
+60s of continuous RPM/coolant polling without observed failures; this does not
+verify a Go BLE implementation, Android or long-duration reliability.
 See [capabilities](docs/capabilities.md).
 
 The owner corrected the device model to **Vgate iCar Pro BLE 4.0 Dual** in an
