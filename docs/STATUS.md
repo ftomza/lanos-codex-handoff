@@ -7,6 +7,10 @@ capability discovery, PID/DTC decoding, bounded reconnect and private JSON expor
 Native Go BLE passed a physical baseline on 2026-10-24 with this MacBook/Vgate/
 Lanos: RPM 889.25, coolant 52°C, speed 0, ATRV 11.0V, MIL off and no stored DTCs
 in the Mode 03 response. All 12 commands succeeded; connection closed normally.
+The subsequent native Go supported-PID scan also passed: 27 commands, one
+attempt, 18 data PIDs read (14 decoded, four raw_only), no warnings. Bitmaps
+BE3EB811/C0000000 were confirmed. MAP/IAT/load/throttle/trims/O2 are now observed;
+the latest readings and exact payloads are documented in capabilities.md.
 Earlier Go SPP attempts received no ATZ response; their root cause is unresolved.
 
 Owner correction: the device is **Vgate iCar Pro BLE 4.0 Dual**. Classic SPP
@@ -22,17 +26,18 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
-The requested Go utility fix is implemented and physically verified for one BLE
-baseline. Build both binaries with make build-obdprobe; use
+The requested Go utility fix is implemented and physically verified for a BLE
+baseline and a supported-PID scan. Build both binaries with make build-obdprobe; use
 bin/obdprobe --transport=ble --ble-name=IOS-Vlink --retries=0 with a fresh output
-filename. See docs/NEXT_CONNECTION.md for the next supported-PID scan, after
-confirming current car/ignition state. Preserve shared recovery/capability rules.
+filename. See docs/NEXT_CONNECTION.md for future sessions; reconfirm current
+car/ignition state before hardware access. Preserve recovery/capability rules.
 Dashboard/live Source integration remains the separate M4 task; no live dashboard
 was added. Native Go endurance, ignition-cycle reconnect and stale injection
-still need physical tests. Read-only 0101 is now measured; MAP/IAT/trim/O2 remain
-pending capability-gated readings.
-0120 and ATRV have now been read over Python BLE: C0000000 and 10.9–11.0V
-with engine running. Verify the unexpectedly low adapter voltage with a multimeter
+still need physical tests. PID 03/13/21/22 returned positive raw payloads, but
+their semantic decoders remain unimplemented. One O2 sample does not establish
+sensor health; MAP/IAT/RPM availability does not validate fuel estimation.
+Native Go confirmed 0120=C0000000 and ATRV=11.0V with engine running.
+Verify the unexpectedly low adapter voltage with a multimeter
 at the battery terminals; it is not a direct generator or ECU voltage measurement.
 
 ## Completed milestones
@@ -41,6 +46,7 @@ at the battery terminals; it is not a direct generator or ECU voltage measuremen
 - M2 — local HTTP/SSE transport, embedded responsive UI and bounded reconnect.
 - M3 — read-only diagnostic CLI, real-session fixture, discovery and recovery.
 - M3 follow-up — native Go BLE transport, private export, baseline physically passed.
+- M3 discovery follow-up — native Go supported scan physically passed; 18 data PIDs.
 
 ## Decisions and risks
 - Local-first, read-only diagnostics.
@@ -422,3 +428,38 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   full Go tests/race, lint, native build, 11 web tests, Linux cross-build and
   go vet -tags=nativeble ./cmd/obdprobe-ble all passed. Native backend was not
   queried again after the single authorized physical baseline.
+
+### 2026-10-24 — native Go supported-PID discovery, engine running
+
+- User asked what is available and freshly confirmed parked car, engine running
+  and permission to scan. Ran exactly one read-only native Go BLE scan:
+  `./bin/obdprobe --transport=ble --ble-name=IOS-Vlink
+  --ble-connect-timeout=30s --timeout=3s --initial-timeout=30s --retries=0
+  --scan-supported --output=diagnostics/native-ble-supported-20261024-001.json`.
+- Window 17:42:05.039–17:42:20.557 Europe/Moscow (15.52s); complete, exit 0,
+  one attempt, all 27 commands ok, no warnings/errors/timeouts observed.
+  Process exited and closed BLE. No further hardware queries or writes/clears.
+- Confirmed 0100=BE3EB811 and 0120=C0000000, protocol A5, ATI ELM327 v2.3.
+  Read all 18 advertised data PIDs: 14 available/decoded, four raw_only;
+  PID 20 is the separate continuation bitmap. No unsupported PID requested.
+- New readings: RPM 936.5, speed 0 km/h, coolant 31°C, MAP 41 kPa, IAT 17°C,
+  throttle 0%, calculated load 5.098%, STFT bank1 0%, LTFT bank1 -10.15625%,
+  timing advance 4°, O2 sensors 1/2 both 0.455V, OBD standard code 1.
+  O2 sensor1 trim 0%; sensor2 byte FF has no available trim interpretation.
+  MIL off/stored count 0; Mode 03 contains no stored DTC. No pending/permanent
+  requests. Each reading is sequential, not a simultaneous snapshot.
+- Positive raw-only payloads: 0103=41030100, 0113=411303, 0121=41210000,
+  0122=41220000. Do not invent numeric values for absent semantic decoders.
+  MAF 10 and fuel level 2F absent; bit 40 clear, so 0140/0142/015E not sent.
+- ATRV again 11.0V. Independent battery-terminal multimeter check still needed;
+  no generator diagnosis from adapter supply. Single O2/trim samples do not
+  diagnose engine faults. MAP/IAT/RPM inputs do not validate M6 estimation.
+- Report remains ignored and private (0600); offline validation checked command
+  count/status/prompt completion, bitmap chain, support/status counts and mode.
+  Updated capability matrix and next-connection guide. Production code, tests,
+  dependencies and user test.py/test2.py unchanged; M4 remains separate.
+- Verification after documentation updates: `go test ./... -count=1`,
+  `make lint` (go vet/formatting) and `git diff --check` passed. All Go tests
+  are offline; no additional Bluetooth session was started by verification.
+- Next: independent voltage measurement, optional offline semantic decoders,
+  then planned native Go endurance/reconnect/stale tests before M4 integration.
