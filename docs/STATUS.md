@@ -15,8 +15,11 @@ Current transport remains Serial/SPP; BLE GATT awaits actual discovery.
 
 ## Next action
 Resolve the adapter/SPP connection first: ignition is on, engine is off, other
-OBD applications are closed, and the user was asked to power-cycle the adapter
-and check its power indicator. Await that observation before another probe.
+OBD applications are closed. The user power-cycled the adapter and confirmed
+stable power indication; another ATZ check still received no bytes. Await the
+command/environment used for the previously successful test.py run, to compare
+serial-client behavior with a bounded adapter-only check. Do not run test.py's
+full sequence, install dependencies or alter serial settings without evidence.
 Then follow docs/NEXT_CONNECTION.md for baseline and supported-PID reports on
 the parked car. Preserve raw data; verify 0120, 0101, ATRV and advertised MAP/IAT/
 trim/O2 readings. Then implement M4 as a separate live Source task, without
@@ -219,3 +222,12 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
 - After removing the temporary helper, `go test ./... -count=1`, `make lint`
   (including go vet and formatting check) and `git diff --check` passed.
   Persistent changes in this follow-up are documentation only.
+- Follow-up: user unplugged/reinserted Vgate and confirmed stable power light.
+  Repeated the same connection-gated ATZ experiment at 38400 with 8s timeout;
+  macOS listed connected at +0.14s, but the command again received zero bytes.
+  Saved diagnostics/ignition-on-20261024-link-connected-002-after-power-cycle.json.
+  Process finished and port closed. Power-cycling did not restore AT responses.
+- Both available python3 and python3.13 lack pyserial. Asked how the previously
+  successful test.py was launched; next compare that environment's serial setup
+  (including flow/modem control) using one AT-only command, with no blind input
+  flush or continued ECU polling after timeout. Root cause remains unresolved.
