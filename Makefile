@@ -1,4 +1,4 @@
-.PHONY: test test-web vet lint build fmt
+.PHONY: test test-web vet lint build fmt build-obdprobe
 
 test:
 	go test ./...
@@ -14,6 +14,10 @@ lint: vet
 
 build:
 	go build ./...
+
+build-obdprobe:
+	go build -o bin/obdprobe ./cmd/obdprobe
+	go build -tags=nativeble -o bin/obdprobe-ble ./cmd/obdprobe-ble
 
 fmt:
 	gofmt -w cmd internal web

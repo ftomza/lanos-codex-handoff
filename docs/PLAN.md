@@ -27,11 +27,18 @@ Acceptance: open browser on MacBook, simulator dashboard updates live and surviv
 - Provide raw diagnostic log export with optional VIN/redaction, no automatic clearing.
 Acceptance: unit tests using fixture responses, including malformed/timeouts; useful output if no SPP port exists.
 
+M3 follow-up completed 2026-10-24: native Go BLE via tinygo.org/x/bluetooth
+v0.16.0, Go 1.27, isolated macOS helper, shared ELM/probe, both transports and
+private reports. One physical Go BLE baseline passed all 12 commands on the
+parked running car; details/limits in STATUS.md. Dashboard remains simulator-only.
+
 ## M4 — Live source integration
+- Reuse the native BLE transport completed in the M3 utility follow-up as the priority MacBook path, with Serial/SPP as an alternative. Observed IOS-Vlink channels and one successful physical Go BLE baseline are in capabilities.md. Android still requires a separate implementation/validation decision.
+- Preserve the existing context-aware byte transport, common ELM parser/framing, command allowlist and PID bitmap decoding. Notifications need not match response boundaries. Require valid channels and acknowledged subscribe/write; do not silently change write mode. The selected API does not separately expose remote property bits.
 - Connect serial ELM source to same telemetry interface as simulator; adaptive polling (RPM/speed higher priority, coolant/voltage lower), per-PID capability detection.
 - Exponential backoff reconnect, stale-data transitions, error metrics; never fabricate values.
 - Do not assume ISO 9141/14230 support means generic PID availability. Distinguish transport failure from ECU protocol failure.
-Acceptance: mock transport tests pass; live verification remains explicitly pending until hardware tested.
+Acceptance: live Source tests pass; measure polling rate, latency and stale transitions. Existing utility transport tests and one Go BLE baseline do not verify live Source integration, Android, long-duration stability or engine-restart recovery; test those explicitly.
 
 ## M5 — Android path
 - First validate browser-based UI on Teclast P85 over LAN; assess fullscreen/kiosk, sleep/wake, brightness, thermal/power behavior.
@@ -40,7 +47,7 @@ Acceptance: mock transport tests pass; live verification remains explicitly pend
 Acceptance: documented architecture decision and Android test checklist.
 
 ## Hardware test checklist
-1. With ignition on and car safely parked, pair Vgate and check macOS SPP serial port availability.
+1. With ignition on and car safely parked, use the observed IOS-Vlink BLE profile with obdprobe --transport=ble after make build-obdprobe. Classic SPP and /dev/cu.* enumeration remain an alternative.
 2. If port exists, read `ATI`, `ATDPN`, `0100`; then `010C`, `0105`, `010D`; capture raw output.
 3. Read `03` and preserve DTCs; never clear without explicit separate request.
 4. If port absent, report macOS transport limitation; try compatible Android or USB K-Line interface before concluding ECU is unsupported.
@@ -58,7 +65,8 @@ Acceptance: documented architecture decision and Android test checklist.
 Acceptance: fuel computer works end-to-end in simulator with persisted resettable trip totals and transparent estimated/unknown states. Live accuracy and ECU PID support remain pending hardware verification. Implement after M3/M4 as appropriate; no ECU writes.
 
 ## Scope decision — OBD-only first (2026-10-21)
-- Current scope is read-only data obtainable through Vgate iCar Pro Bluetooth 3.0 and the vehicle ECU; do not implement ESP32, vehicle wiring taps, auxiliary sensors, or body-signal hardware.
+- Current scope is read-only data obtainable through Vgate iCar Pro BLE 4.0 Dual and the vehicle ECU (model corrected by the owner on 2026-10-24); do not implement ESP32, vehicle wiring taps, auxiliary sensors, or body-signal hardware.
+- Updated on 2026-10-24: prioritize the confirmed BLE GATT path and retain Serial/SPP. Actual IOS-Vlink UUIDs and ECU responses are in capabilities.md. M3 utility now implements native Go BLE and SPP with one ELM parser/framer; one physical Go BLE baseline passed. M4 will reuse it for the dashboard; do not assume Android support or concurrent Classic/BLE operation.
 - Discovery phase: record supported Mode 01 PID bitmaps (0100, 0120, 0140 etc. only where indicated), supported DTC/identification modes, protocol and raw responses. Distinguish adapter voltage from ECU-reported battery voltage.
 - Prioritize RPM, speed, coolant temperature, voltage and DTC; then MAP, IAT, throttle, load, oxygen-sensor data, trims; explore fuel rate/injector timing/ECU identifiers only when supported and documented. Avoid indiscriminate proprietary requests or any write commands.
 - Expose per-signal capability and freshness: supported, unsupported, not-yet-tested, temporarily-unavailable. Do not conflate these states.

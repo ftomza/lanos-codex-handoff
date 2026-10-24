@@ -1,0 +1,25 @@
+{
+  "source": "https://github.com/ftomza/lanos-codex-handoff/issues/1",
+  "observed_on": "2026-10-24",
+  "adapter_model": "Vgate iCar Pro BLE 4.0 Dual",
+  "adapter_model_source": "owner_reported",
+  "adapter_model_evidence": "https://github.com/ftomza/lanos-codex-handoff/issues/1#issuecomment-6383158184",
+  "transport": "serial_spp",
+  "port": "/dev/cu.Android-Vlink",
+  "note": "User-reported physical session; baud and per-command timestamps were not supplied. CR escapes below are actual response bytes after JSON decoding.",
+  "exchanges": [
+    {"command":"ATZ", "raw":"ATZ\r\r\rELM327 v2.3\r\r>"},
+    {"command":"ATE0", "raw":"ATE0\rOK\r\r>"},
+    {"command":"ATL0", "raw":"OK\r\r>"},
+    {"command":"ATS0", "raw":"OK\r\r>"},
+    {"command":"ATH0", "raw":"OK\r\r>"},
+    {"command":"ATI", "raw":"ELM327 v2.3\r\r>"},
+    {"command":"ATSP0", "raw":"OK\r\r>"},
+    {"command":"0100", "raw":"SEARCHING...\r4100BE3EB811\r\r>"},
+    {"command":"ATDPN", "raw":"A5\r\r>"},
+    {"command":"010C", "raw":"410C0000\r\r>"},
+    {"command":"0105", "raw":"410576\r\r>"},
+    {"command":"010D", "raw":"410D00\r\r>"},
+    {"command":"03", "raw":"43000000000000\r\r>"}
+  ]
+}

@@ -1,0 +1,260 @@
+{
+  "provenance": "Agent physical BLE sessions on stationary Chevrolet Lanos, engine running, 2026-10-24; exact reassembled response strings from private local logs. logged_at is wrapper receipt time, not ECU capture time. Notification boundaries and command start times were not logged. Also includes 12 exact responses from the successful native Go baseline private report; completed_at is command completion on the host, not ECU capture time.",
+  "model": "Vgate iCar Pro BLE 4.0 Dual",
+  "transport": "ble_gatt",
+  "name": "IOS-Vlink",
+  "observations": [
+    {
+      "command": "ATE0",
+      "raw": "OK\r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:35.987843+00:00"
+    },
+    {
+      "command": "ATL0",
+      "raw": "OK\r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:36.047905+00:00"
+    },
+    {
+      "command": "ATSP0",
+      "raw": "OK\r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:36.108038+00:00"
+    },
+    {
+      "command": "0100",
+      "raw": "SEARCHING...\r41 00 BE 3E B8 11 \r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:41.237942+00:00"
+    },
+    {
+      "command": "ATDPN",
+      "raw": "A5\r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:41.268901+00:00"
+    },
+    {
+      "command": "0105",
+      "raw": "41 05 5A \r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:41.642451+00:00"
+    },
+    {
+      "command": "010C",
+      "raw": "41 0C 0D F2 \r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:42.017708+00:00"
+    },
+    {
+      "command": "ATE0",
+      "raw": "OK\r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:46.157949+00:00"
+    },
+    {
+      "command": "ATL0",
+      "raw": "OK\r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:46.218647+00:00"
+    },
+    {
+      "command": "ATSP0",
+      "raw": "OK\r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:46.277989+00:00"
+    },
+    {
+      "command": "0100",
+      "raw": "SEARCHING...\r41 00 BE 3E B8 11 \r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:51.406947+00:00"
+    },
+    {
+      "command": "ATDPN",
+      "raw": "A5\r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:51.437756+00:00"
+    },
+    {
+      "command": "0105",
+      "raw": "41 05 5B \r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:51.812587+00:00"
+    },
+    {
+      "command": "010C",
+      "raw": "41 0C 0D E0 \r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:52.186841+00:00"
+    },
+    {
+      "command": "ATE0",
+      "raw": "OK\r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:57.769289+00:00"
+    },
+    {
+      "command": "ATL0",
+      "raw": "OK\r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:57.829489+00:00"
+    },
+    {
+      "command": "ATSP0",
+      "raw": "OK\r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:31:57.889829+00:00"
+    },
+    {
+      "command": "0100",
+      "raw": "SEARCHING...\r41 00 BE 3E B8 11 \r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:32:03.018384+00:00"
+    },
+    {
+      "command": "ATDPN",
+      "raw": "A5\r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:32:03.049117+00:00"
+    },
+    {
+      "command": "0105",
+      "raw": "41 05 5B \r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:32:03.422710+00:00"
+    },
+    {
+      "command": "010C",
+      "raw": "41 0C 0D 73 \r\r>",
+      "log": "engine-on-ble-20261024T123131Z-sessions.log",
+      "logged_at": "2026-10-24T12:32:03.797074+00:00"
+    },
+    {
+      "command": "ATE0",
+      "raw": "OK\r\r>",
+      "log": "engine-on-ble-20261024T123744Z-voltage.log",
+      "logged_at": "2026-10-24T12:37:47.212022+00:00"
+    },
+    {
+      "command": "ATL0",
+      "raw": "OK\r\r>",
+      "log": "engine-on-ble-20261024T123744Z-voltage.log",
+      "logged_at": "2026-10-24T12:37:47.271713+00:00"
+    },
+    {
+      "command": "ATSP0",
+      "raw": "OK\r\r>",
+      "log": "engine-on-ble-20261024T123744Z-voltage.log",
+      "logged_at": "2026-10-24T12:37:47.331929+00:00"
+    },
+    {
+      "command": "ATRV",
+      "raw": "11.0V\r\r>",
+      "log": "engine-on-ble-20261024T123744Z-voltage.log",
+      "logged_at": "2026-10-24T12:37:47.391572+00:00"
+    },
+    {
+      "command": "ATRV",
+      "raw": "10.9V\r\r>",
+      "log": "engine-on-ble-20261024T123744Z-voltage.log",
+      "logged_at": "2026-10-24T12:37:47.932610+00:00"
+    },
+    {
+      "command": "ATRV",
+      "raw": "11.0V\r\r>",
+      "log": "engine-on-ble-20261024T123744Z-voltage.log",
+      "logged_at": "2026-10-24T12:37:48.471431+00:00"
+    },
+    {
+      "command": "0100",
+      "raw": "SEARCHING...\r41 00 BE 3E B8 11 \r\r>",
+      "log": "engine-on-ble-20261024T123744Z-voltage.log",
+      "logged_at": "2026-10-24T12:37:54.080507+00:00"
+    },
+    {
+      "command": "010C",
+      "raw": "41 0C 0D 43 \r\r>",
+      "log": "engine-on-ble-20261024T123744Z-voltage.log",
+      "logged_at": "2026-10-24T12:37:54.455415+00:00"
+    },
+    {
+      "command": "0120",
+      "raw": "41 20 C0 00 00 00 \r\r>",
+      "log": "engine-on-ble-20261024T123744Z-voltage.log",
+      "logged_at": "2026-10-24T12:37:54.846372+00:00"
+    },
+    {
+      "command": "ATE0",
+      "raw": "ATE0\rOK\r\r>",
+      "log": "native-ble-engine-on-20261024-001.json",
+      "completed_at": "2026-10-24T13:18:30.036508Z"
+    },
+    {
+      "command": "ATL0",
+      "raw": "OK\r\r>",
+      "log": "native-ble-engine-on-20261024-001.json",
+      "completed_at": "2026-10-24T13:18:30.095604Z"
+    },
+    {
+      "command": "ATI",
+      "raw": "ELM327 v2.3\r\r>",
+      "log": "native-ble-engine-on-20261024-001.json",
+      "completed_at": "2026-10-24T13:18:30.185894Z"
+    },
+    {
+      "command": "ATSP0",
+      "raw": "OK\r\r>",
+      "log": "native-ble-engine-on-20261024-001.json",
+      "completed_at": "2026-10-24T13:18:30.245761Z"
+    },
+    {
+      "command": "0100",
+      "raw": "SEARCHING...\r41 00 BE 3E B8 11 \r\r>",
+      "log": "native-ble-engine-on-20261024-001.json",
+      "completed_at": "2026-10-24T13:18:35.374812Z"
+    },
+    {
+      "command": "ATDPN",
+      "raw": "A5\r\r>",
+      "log": "native-ble-engine-on-20261024-001.json",
+      "completed_at": "2026-10-24T13:18:35.40604Z"
+    },
+    {
+      "command": "ATRV",
+      "raw": "11.0V\r\r>",
+      "log": "native-ble-engine-on-20261024-001.json",
+      "completed_at": "2026-10-24T13:18:35.451433Z"
+    },
+    {
+      "command": "010C",
+      "raw": "41 0C 0D E5 \r\r>",
+      "log": "native-ble-engine-on-20261024-001.json",
+      "completed_at": "2026-10-24T13:18:35.824271Z"
+    },
+    {
+      "command": "0105",
+      "raw": "41 05 5C \r\r>",
+      "log": "native-ble-engine-on-20261024-001.json",
+      "completed_at": "2026-10-24T13:18:36.19962Z"
+    },
+    {
+      "command": "010D",
+      "raw": "41 0D 00 \r\r>",
+      "log": "native-ble-engine-on-20261024-001.json",
+      "completed_at": "2026-10-24T13:18:36.574305Z"
+    },
+    {
+      "command": "0101",
+      "raw": "41 01 00 07 E1 A1 \r\r>",
+      "log": "native-ble-engine-on-20261024-001.json",
+      "completed_at": "2026-10-24T13:18:36.904707Z"
+    },
+    {
+      "command": "03",
+      "raw": "43 00 00 00 00 00 00 \r\r>",
+      "log": "native-ble-engine-on-20261024-001.json",
+      "completed_at": "2026-10-24T13:18:37.234596Z"
+    }
+  ]
+}
