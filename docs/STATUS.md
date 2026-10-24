@@ -30,8 +30,11 @@ do not change go.mod or claim a BLE CLI already exists. Follow with M4 live
 Source, measured polling latency/rate, freshness and bounded reconnect tests.
 Before the next physical run, confirm the current engine/ignition state afresh;
 the newest owner evidence includes engine-running tests performed separately.
-Preserve raw data and obtain 0120, 0101, ATRV and advertised MAP/IAT/trim/O2 readings
+Preserve raw data and obtain 0101 and advertised MAP/IAT/trim/O2 readings
 only through capability-gated read-only polling. See docs/NEXT_CONNECTION.md.
+0120 and ATRV have now been read over Python BLE: C0000000 and 10.9–11.0V
+with engine running. Verify the unexpectedly low adapter voltage with a multimeter
+at the battery terminals; it is not a direct generator or ECU voltage measurement.
 
 ## Completed milestones
 - M0 — module, package boundaries, commands, README and Makefile.
@@ -47,7 +50,8 @@ only through capability-gated read-only polling. See docs/NEXT_CONNECTION.md.
   is not guaranteed. Android SPP is untested; Go serial communication has been
   attempted physically but has not yet received any adapter response.
 - ECU identity remains unconfirmed. BE3EB811 and RPM/coolant/speed/Mode 03
-  responses are known; higher ranges and other readings remain pending.
+  responses are known. 0120=C0000000 advertises only PID 21/22 in that range;
+  PID 2F is absent and PID 40 continuation is clear. Higher ranges were not queried.
 - Baud was not recorded in Issue #1; 38400/9600 remain explicit options.
 - Owner BLE tests returned A5 / BE3EB811 and real nonzero RPM. This does not
   resolve the SPP failure cause, prove Android compatibility or long-run stability.
@@ -310,3 +314,25 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
 - Verification after documentation updates: `go test ./... -count=1`,
   `make lint` (go vet and formatting) and `git diff --check` passed. Repository
   changes are documentation only; raw reports/scripts remain private and ignored.
+
+### 2026-10-24 — read-only voltage check, engine running
+
+- User requested current generator voltage and confirmed engine still running.
+  One Python BLE session, existing environment, derived diagnostic script only;
+  original test.py/test2.py and production Go code unchanged. No packages added.
+- ATE0/ATL0/ATSP0 returned OK. Three ATRV responses at 12:37:47–48 UTC were
+  11.0V, 10.9V, 11.0V. This is adapter-measured supply at the OBD connector,
+  not a measurement at generator terminals or an ECU battery-voltage PID.
+- 0100 returned BE3EB811. 010C=410C0D43 decoded to 848.75 RPM, confirming
+  engine activity during this session. 0120=4120C0000000 advertises PID 21/22
+  only; 2F fuel level is not supported in that bitmap, and PID 40 continuation
+  is clear. Did not send 0140/0142 or guess unavailable ECU voltage.
+- ATRV is unexpectedly low for a charging conventional 12V system; it requires
+  an independent multimeter check at battery terminals with engine running.
+  Adapter calibration/wiring drop or charging-system issues cannot be separated
+  by these responses; do not diagnose generator failure from ATRV alone.
+- Session closed cleanly, child exit 0, no reported timeout/errors. Private 0600
+  script/log: diagnostics/engine-on-ble-20261024T123744Z-voltage.py and .log.
+  Next: verify voltage independently, then continue BLE/M4 work separately.
+- Documentation checks: `make lint` (go vet and formatting) and
+  `git diff --check` passed. No production behavior changed.
