@@ -32,6 +32,11 @@ v0.16.0, Go 1.27, isolated macOS helper, shared ELM/probe, both transports and
 private reports. One physical Go BLE baseline passed all 12 commands on the
 parked running car; details/limits in STATUS.md. Dashboard remains simulator-only.
 
+M3 trip-recorder follow-up implemented 2026-10-24: explicit --record mode,
+private streaming JSONL, supported-input polling and bounded recovery for future
+fuel-computer research. Offline tests passed; physical recording/endurance is
+pending. See TRIP_RECORDING.md. This does not complete M4 or M6.
+
 ## M4 — Live source integration
 - Reuse the native BLE transport completed in the M3 utility follow-up as the priority MacBook path, with Serial/SPP as an alternative. Observed IOS-Vlink channels and one successful physical Go BLE baseline are in capabilities.md. Android still requires a separate implementation/validation decision.
 - Preserve the existing context-aware byte transport, common ELM parser/framing, command allowlist and PID bitmap decoding. Notifications need not match response boundaries. Require valid channels and acknowledged subscribe/write; do not silently change write mode. The selected API does not separately expose remote property bits.

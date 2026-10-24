@@ -11,6 +11,9 @@ The subsequent native Go supported-PID scan also passed: 27 commands, one
 attempt, 18 data PIDs read (14 decoded, four raw_only), no warnings. Bitmaps
 BE3EB811/C0000000 were confirmed. MAP/IAT/load/throttle/trims/O2 are now observed;
 the latest readings and exact payloads are documented in capabilities.md.
+The new --record trip grabber is implemented and offline-tested, with private
+incremental JSONL, scheduled capability-gated polling and bounded recovery.
+It has not yet been run physically; it does not calculate fuel consumption.
 Earlier Go SPP attempts received no ATZ response; their root cause is unresolved.
 
 Owner correction: the device is **Vgate iCar Pro BLE 4.0 Dual**. Classic SPP
@@ -26,9 +29,11 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
-New requested work: prepare a native Go trip recorder for fuel-computer research.
-Proposed design: docs/superpowers/specs/2026-10-24-trip-recorder-design.md;
-awaiting owner review before implementation. No recording command exists yet.
+Trip recorder is ready for a short parked test before an unattended trip:
+`make build-obdprobe`, then `./bin/obdprobe --transport=ble --record --duration=1m
+--retries=0`. The owner starts future hardware runs; none occurred during this
+implementation. See docs/TRIP_RECORDING.md for the trip command, file location,
+stop behavior and independent refueling/odometer notes needed for calibration.
 
 The requested Go utility fix is implemented and physically verified for a BLE
 baseline and a supported-PID scan. Build both binaries with make build-obdprobe; use
@@ -51,6 +56,7 @@ at the battery terminals; it is not a direct generator or ECU voltage measuremen
 - M3 — read-only diagnostic CLI, real-session fixture, discovery and recovery.
 - M3 follow-up — native Go BLE transport, private export, baseline physically passed.
 - M3 discovery follow-up — native Go supported scan physically passed; 18 data PIDs.
+- M3 trip-recorder follow-up — implemented/offline-tested; physical recording pending.
 
 ## Decisions and risks
 - Local-first, read-only diagnostics.
@@ -486,3 +492,56 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
 - Await owner review as required by the brainstorming skill. No production code,
   dependency changes or hardware access. No new tests run for this design-only
   change; git diff --check passed. User test.py/test2.py remain untouched.
+
+### 2026-10-24 — trip recorder implemented after owner approval
+
+- Owner approved the written design. Implemented on feat/fuel-trip-recorder
+  using the inline plan docs/superpowers/plans/2026-10-24-trip-recorder.md.
+  No Go version/dependency changes, Python or dashboard integration.
+- Added explicit --record/--duration to obdprobe; default 4h, maximum 24h,
+  generated exclusive 0600 diagnostics/trip-*.jsonl or explicit new --output.
+  Existing finite probe/report behavior and native helper build remain usable.
+- Shared initialization/discovery, parser/allowlist, PID/DTC/ATRV decoders and
+  recovery. Core RPM/MAP/speed plus oldest-due supporting inputs; one command
+  at a time, no catch-up burst, no unsupported PID queries. Actual command wall
+  timestamps and monotonic offsets/latencies are recorded; zero timing fields
+  are explicit in the streaming schema.
+- JSONL schema v1 records configuration/revision, owner-reported displacement,
+  capability evidence, samples/raw/errors, gaps/recovery, segment boundaries
+  and final counters/polling/unobserved time. This is host timing, not ECU
+  capture time or simultaneous snapshots. Polling time is not fuel-data coverage.
+- Writer syncs every event before the next request (stronger than the minimum
+  periodic-sync design), stops on disk/sync failure and caps output at 256 MiB
+  with final-event reserve. No accumulated trip command/warning lists in RAM.
+  Shared VIN redaction preserves integer precision; private logs stay ignored.
+- Retry budget is total across the recording, default two additional attempts.
+  Timeout/reopen still requires read-only prompt recovery before initialization;
+  no blind flush, guessed ECU writes, clearing, VIN or pending/permanent queries.
+  Duration and SIGINT/SIGTERM stop cleanly; close/output/transport errors surface.
+- Tests written first failed on missing writer/recording/CLI APIs, then passed.
+  Regression tests also caught duplicate segment_end after cancellation during
+  backoff, unsynced events before long waits, missing zero timing fields and
+  advertised-but-unavailable required inputs; each was corrected and verified.
+  Repeated NO DATA clears previous measurements rather than preserving a value.
+- Offline coverage includes real-fixture CLI/ELM/JSONL replay, malformed/NO DATA/
+  raw-only readings, in-command cancellation, timeout/reopen prompt ordering,
+  retry exhaustion, disk/short-write/sync/close failures, exclusive files,
+  generated names, redaction, file bounds and a simulated one-hour recording
+  with over 10,000 commands but no retained command/warning history.
+- Initial race run exposed an overly short 1ms fake-adapter deadline on a normal
+  response under instrumentation. Raised only test deadlines to 1s/100ms;
+  go test -race ./internal/probe -count=3 and subsequent full race checks passed.
+  Production timeout remains 3s.
+- Final passed: go test ./... -count=1; go test -race ./...; make lint
+  (go vet/gofmt); make build-obdprobe; GOOS=linux GOARCH=amd64 go build ./...;
+  go vet -tags=nativeble ./cmd/obdprobe-ble; git diff --check. --help and
+  --list-ports --json passed without opening devices. goimports unavailable;
+  used gofmt and checked stdlib/local import groups manually.
+- Added docs/TRIP_RECORDING.md and updated README/NEXT_CONNECTION. Explained
+  parked startup/stop, unattended operation, MacBook awake/power conditions,
+  actual sampling limits and full-to-full calibration notes. No hardware
+  commands sent or new physical compatibility/endurance claim. test.py/test2.py
+  untouched/excluded. M4 and M6 remain separate, incomplete milestones.
+- Next: owner short parked recording, then ordinary unattended trip plus fuel
+  type/odometer/refueling notes; inspect actual sample intervals and gaps before
+  constructing/calibrating the speed-density fuel estimator.

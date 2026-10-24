@@ -1,6 +1,7 @@
 # Trip recorder for fuel-computer research
 
-Status: proposed; awaiting owner review before implementation.
+Status: approved by the owner on 2026-10-24; implemented and offline-verified.
+Physical trip recording remains pending.
 
 ## Purpose and scope
 
@@ -25,9 +26,9 @@ checks remain necessary for calibration. No claimed fuel accuracy from logs alon
 3. Build M4 dashboard/live Source first: useful later, but adds UI/server and
    freshness integration before the owner can collect research data.
 
-## Proposed CLI
+## CLI
 
-This interface is a proposal, not an available command yet:
+Available after make build-obdprobe:
 
 ```sh
 make build-obdprobe
@@ -116,7 +117,9 @@ if a later session fails. Record RPM=0 as a measured value, without inferring
 fuel cut or automatically ending the recording.
 
 Write complete JSON lines incrementally, with no trip-sized memory buffer; flush
-each event and sync at least every 5s and on normal close. On disk/write/sync
+and sync each event and sync on normal close. The implementation syncs more
+frequently than the originally required 5s minimum so long protocol/recovery
+waits do not delay persistence of earlier commands. On disk/write/sync
 failure stop further ECU commands and close transport; surface cleanup errors.
 Reserve bounded space for final events when enforcing the file-size limit.
 An abrupt power loss may leave an incomplete last line and unsynced recent data;

@@ -102,8 +102,9 @@ go run ./cmd/obdprobe --list-ports
 ```
 
 Enumeration never opens a device. Serial requires an explicit port; BLE requires
-explicit `--transport=ble`. Both should
-only be run with the vehicle parked. For the next physical session, follow
+explicit `--transport=ble`. Run finite diagnostic probes with the vehicle
+parked; start trip recording while parked and leave it unattended until parking
+again. For the next physical session, follow
 [NEXT_CONNECTION.md](docs/NEXT_CONNECTION.md), including baseline and supported-PID
 scan commands, output preservation, error interpretation and reconnect limits.
 
@@ -134,10 +135,12 @@ See [third-party notices](docs/THIRD_PARTY.md) when distributing native binaries
 | `--timeout` | `3s` | Entire command, including partial write and prompt read; also serial open. |
 | `--initial-timeout` | `30s` | Each initial `0100` protocol search. |
 | `--recovery-timeout` | `30s` | Wait for a delayed prompt without sending commands. |
-| `--retries` | `2` | Additional attempts, maximum 5; backoff 0.5, 1, 2, 4, 4 seconds. |
+| `--retries` | `2` | Additional attempts, maximum 5; backoff 0.5, 1, 2, 4, 4 seconds. Recording uses one total budget for the entire run. |
 | `--scan-supported` | false | Follow advertised bitmap continuations and sample declared PIDs. |
 | `--json` | false | One JSON report on stdout instead of a human-readable command audit. |
-| `--output` | empty | Exclusive-create JSON file with permissions 0600; never overwrite logs. |
+| `--output` | empty | Exclusive-create report JSON or recording JSONL, permissions 0600; recording mode generates a path in diagnostics/ when omitted. |
+| `--record` | false | Continuous capability-gated trip recording to private JSONL; start while parked and leave unattended. |
+| `--duration` | `4h` | Recording only; positive duration up to 24h. Ctrl+C also finishes cleanly. |
 | `--redact-vin` | true | Redact recognizable unsolicited VIN text/Mode 09 VIN lines. VIN is never requested. |
 
 Serial initializes `ATZ`, `ATE0`, `ATL0`, `ATS0`, `ATH0`, `ATI`, `ATSP0`;
@@ -173,6 +176,26 @@ Real serial access uses native macOS nonblocking raw 8N1 termios, no third-party
 Go modules or `stty`. Other platforms can build and run offline tests but cannot
 open real ports through this implementation. Native Go BLE passed one physical
 baseline on this MacBook/Vgate/car; Android performance/Bluetooth remains unverified.
+
+## Trip recording for fuel-computer research
+
+```sh
+make build-obdprobe
+caffeinate -i ./bin/obdprobe --transport=ble --record
+```
+
+Start while parked; first verify a short parked recording. The file is created
+under ignored diagnostics/ and printed on startup. Stop with Ctrl+C after parking.
+This collects RPM/MAP/speed plus supporting engine data, raw responses and timing;
+it does not calculate fuel consumption. Fuel calibration needs independent
+full-to-full liters/odometer notes, not logs alone. Duration defaults to 4h,
+file size is capped at 256 MiB and retries are bounded over the entire recording.
+Each event is synced before the next command. Gaps and unavailable readings are
+explicit; recording mode never grows an in-memory command history.
+
+See [TRIP_RECORDING.md](docs/TRIP_RECORDING.md) for setup, data schedule, failure
+behavior, schema and refueling notes. Offline tests cover recording; physical
+endurance/driving behavior remains untested. This does not complete M4 or M6.
 
 ## Boundaries
 

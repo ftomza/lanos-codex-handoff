@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/ble"
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/elm327"
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/probe"
+	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/record"
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/serial"
 )
 
@@ -19,6 +21,7 @@ const portGuidance = "If no /dev/cu.* port appears, macOS Bluetooth Classic SPP 
 type dependencies struct {
 	listPorts func() ([]string, error)
 	probe     func(context.Context, probe.Config) (probe.Report, error)
+	record    func(context.Context, probe.Config, time.Duration, func(record.Event) error) (probe.RecordingSummary, error)
 }
 
 func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps dependencies) error {
@@ -40,6 +43,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps depe
 	}
 	if options.config.Transport == "serial" && options.config.Port == "" {
 		return fmt.Errorf("no port selected; run obdprobe --list-ports, then supply --port. %s", portGuidance)
+	}
+	if options.record {
+		return runRecording(ctx, options, stdout, stderr, deps)
 	}
 	var file *os.File
 	if options.output != "" {
@@ -74,13 +80,17 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps depe
 	return errors.Join(probeErr, fileErr, displayErr)
 }
 
-func runProbe(ctx context.Context, cfg probe.Config) (probe.Report, error) {
-	runner, err := probe.New(cfg, func(ctx context.Context) (elm327.Transport, error) {
+func newRunner(cfg probe.Config) (*probe.Runner, error) {
+	return probe.New(cfg, func(ctx context.Context) (elm327.Transport, error) {
 		if cfg.Transport == "ble" {
 			return ble.Open(ctx, ble.Config{Name: cfg.BLEName, Helper: cfg.BLEHelper})
 		}
 		return serial.Open(ctx, cfg.Port, cfg.Baud)
 	})
+}
+
+func runProbe(ctx context.Context, cfg probe.Config) (probe.Report, error) {
+	runner, err := newRunner(cfg)
 	if err != nil {
 		return probe.Report{}, err
 	}

@@ -9,15 +9,18 @@ import (
 )
 
 type CommandLog struct {
-	Attempt     int           `json:"attempt"`
-	Action      string        `json:"action"`
-	Command     string        `json:"command,omitzero"`
-	Source      string        `json:"source"`
-	StartedAt   time.Time     `json:"started_at"`
-	CompletedAt time.Time     `json:"completed_at"`
-	RawResponse string        `json:"raw_response"`
-	Status      elm327.Status `json:"status"`
-	Error       string        `json:"error,omitzero"`
+	StartedElapsedNS   int64         `json:"started_elapsed_ns,omitzero"`
+	CompletedElapsedNS int64         `json:"completed_elapsed_ns,omitzero"`
+	LatencyNS          int64         `json:"latency_ns,omitzero"`
+	Attempt            int           `json:"attempt"`
+	Action             string        `json:"action"`
+	Command            string        `json:"command,omitzero"`
+	Source             string        `json:"source"`
+	StartedAt          time.Time     `json:"started_at"`
+	CompletedAt        time.Time     `json:"completed_at"`
+	RawResponse        string        `json:"raw_response"`
+	Status             elm327.Status `json:"status"`
+	Error              string        `json:"error,omitzero"`
 }
 
 type Capability struct {
@@ -59,6 +62,7 @@ type AdapterVoltage struct {
 }
 
 type Report struct {
+	streaming      bool
 	BLE            *BLEInfo         `json:"ble,omitzero"`
 	Device         DeviceInfo       `json:"device"`
 	Transport      string           `json:"transport"`
@@ -88,8 +92,8 @@ type BLEInfo struct {
 }
 
 func resetReport(report *Report, cfg Config, attempt int) {
-	logs, started := report.Commands, report.StartedAt
-	*report = Report{Device: deviceInfo(cfg.AdapterModel), Transport: "serial_spp", Source: "elm327_serial", Status: "complete", Port: cfg.Port, Baud: cfg.Baud, StartedAt: started,
+	logs, started, streaming := report.Commands, report.StartedAt, report.streaming
+	*report = Report{streaming: streaming, Device: deviceInfo(cfg.AdapterModel), Transport: "serial_spp", Source: "elm327_serial", Status: "complete", Port: cfg.Port, Baud: cfg.Baud, StartedAt: started,
 		Attempts: attempt, Commands: logs, Capabilities: make([]Capability, 255), Bitmaps: []Bitmap{}, Warnings: []string{},
 		StoredDTCs:     DTCResult{Source: "ecu_mode03", Status: "not_yet_tested"},
 		AdapterVoltage: AdapterVoltage{Source: "adapter_atrv", Status: "not_yet_tested", Unit: "V"}}
@@ -106,7 +110,9 @@ func resetReport(report *Report, cfg Config, attempt int) {
 
 func (report *Report) unavailable(message string) {
 	report.Status = "partial"
-	report.Warnings = append(report.Warnings, message)
+	if !report.streaming {
+		report.Warnings = append(report.Warnings, message)
+	}
 }
 
 func (report *Report) invalidate() {
