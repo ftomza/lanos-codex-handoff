@@ -2,15 +2,19 @@
 
 Local, read-only Chevrolet Lanos dashboard and M3 diagnostic probe. The dashboard
 still uses **simulated data only**; live dashboard integration belongs to M4.
-Issue #1 records one successful physical Vgate/KWP2000 session. The new Go probe
-has been tested offline; its physical operation and the exact ECU model (possibly
-Delphi MR-140) remain unverified. See [capabilities](docs/capabilities.md).
+Issue #1 records successful owner Vgate/KWP2000 tests over SPP and BLE, including
+nonzero engine RPM over BLE. The Go probe passed offline tests but received no
+ATZ response during its physical SPP attempt. Successful Go communication and
+the exact ECU model (possibly Delphi MR-140) remain unverified.
+See [capabilities](docs/capabilities.md).
 
 The owner corrected the device model to **Vgate iCar Pro BLE 4.0 Dual** in an
 [Issue #1 comment](https://github.com/ftomza/lanos-codex-handoff/issues/1#issuecomment-6383158184).
 Classic SPP through `/dev/cu.Android-Vlink` has worked on MacBook M3. The current
-probe uses Serial/SPP. BLE GATT is deferred until service/characteristic discovery;
-the product name does not establish a standard BLE UART or simultaneous links.
+probe uses Serial/SPP. New owner comments confirm IOS-Vlink GATT channels and
+real ECU readings; BLE is now the priority for MacBook/Android, with SPP retained
+as an alternative. BLE implementation is still pending; actual UUIDs and evidence
+are in capabilities.md. Simultaneous Classic/BLE links remain unverified.
 
 ## Development
 
@@ -129,8 +133,9 @@ For this device the model's source is `owner_reported`, with `device.evidence_ur
 linking to the correction; a different explicit model is `user_supplied`, and an
 empty model is `unknown`. `transport=serial_spp` describes the current backend,
 not BLE capability. The `elm327.Transport` Read/Write/Close boundary remains
-independent of serial; a future GATT adapter must discover its actual channels
-and implement stream framing rather than assuming a UART service.
+independent of serial; the planned GATT adapter must validate the observed
+IOS-Vlink channels and turn notifications into a byte stream for the existing
+ELM framing/parser, without duplicating protocol logic.
 
 Responses are limited to 16 KiB per command. A timeout blocks later writes until
 a prompt is consumed, followed by full initialization/discovery. A reopened port
@@ -140,8 +145,8 @@ it neither flushes input blindly nor repairs system Bluetooth pairing.
 
 Real serial access uses native macOS nonblocking raw 8N1 termios, no third-party
 Go modules or `stty`. Other platforms can build and run offline tests but cannot
-open real ports through this implementation. Physical tests of this Go code and
-Android 15 Go performance/Bluetooth remain pending.
+open real ports through this implementation. Successful Go hardware communication
+and Android 15 Go performance/Bluetooth remain unverified.
 
 ## Boundaries
 

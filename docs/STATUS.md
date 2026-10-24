@@ -11,19 +11,22 @@ even while a diagnostic helper held the port open without sending commands.
 
 Owner correction: the device is **Vgate iCar Pro BLE 4.0 Dual**. Classic SPP
 through /dev/cu.Android-Vlink on MacBook M3 is confirmed in the owner's comment.
-Current transport remains Serial/SPP; BLE GATT awaits actual discovery.
+New owner comments confirm BLE GATT discovery and real ECU responses on MacBook
+M3: three engine-off and three engine-running sessions without re-pairing.
+BLE is now the priority direction; current Go code still implements Serial/SPP
+only. Android, Go BLE and sustained reliability remain unverified.
 
 ## Next action
-Resolve the adapter/SPP connection first: ignition is on, engine is off, other
-OBD applications are closed. The user power-cycled the adapter and confirmed
-stable power indication; another ATZ check still received no bytes. Await the
-command/environment used for the previously successful test.py run, to compare
-serial-client behavior with a bounded adapter-only check. Do not run test.py's
-full sequence, install dependencies or alter serial settings without evidence.
-Then follow docs/NEXT_CONNECTION.md for baseline and supported-PID reports on
-the parked car. Preserve raw data; verify 0120, 0101, ATRV and advertised MAP/IAT/
-trim/O2 readings. Then implement M4 as a separate live Source task, without
-substituting simulator values for missing vehicle data.
+Use the owner's confirmed IOS-Vlink GATT channels for the next BLE transport
+implementation, behind the existing elm327.Transport; retain SPP as an alternative.
+The previous request for the Python/SPP environment no longer blocks this path.
+Select the macOS BLE backend and obtain approval if new dependencies are needed;
+do not change go.mod or claim a BLE CLI already exists. Follow with M4 live
+Source, measured polling latency/rate, freshness and bounded reconnect tests.
+Before the next physical run, confirm the current engine/ignition state afresh;
+the newest owner evidence includes engine-running tests performed separately.
+Preserve raw data and obtain 0120, 0101, ATRV and advertised MAP/IAT/trim/O2 readings
+only through capability-gated read-only polling. See docs/NEXT_CONNECTION.md.
 
 ## Completed milestones
 - M0 — module, package boundaries, commands, README and Makefile.
@@ -41,6 +44,8 @@ substituting simulator values for missing vehicle data.
 - ECU identity remains unconfirmed. BE3EB811 and RPM/coolant/speed/Mode 03
   responses are known; higher ranges and other readings remain pending.
 - Baud was not recorded in Issue #1; 38400/9600 remain explicit options.
+- Owner BLE tests returned A5 / BE3EB811 and real nonzero RPM. This does not
+  resolve the SPP failure cause, prove Android compatibility or long-run stability.
 
 ## Work log
 Codex: append date, milestone, commands, test outcomes, blockers and next steps here.
@@ -231,3 +236,28 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   successful test.py was launched; next compare that environment's serial setup
   (including flow/modem control) using one AT-only command, with no blind input
   flush or continued ECU polling after timeout. Root cause remains unresolved.
+
+### 2026-10-24 — new owner BLE evidence and transport priority
+
+- Read both new comments in Issue #1:
+  https://github.com/ftomza/lanos-codex-handoff/issues/1#issuecomment-6384173048
+  and https://github.com/ftomza/lanos-codex-handoff/issues/1#issuecomment-6384193400.
+- Owner reports three BLE connect/query/disconnect sessions with ignition on,
+  engine off, and three with engine running on a stationary car, without
+  re-pairing. Observed IOS-Vlink service/RX notify/TX write UUIDs and response
+  payloads are recorded in capabilities.md; they are not guessed UART UUIDs.
+- All sessions returned 0100=BE3EB811 and ATDPN=A5. Engine-off readings were
+  40°C / 0 RPM. Engine-running readings: 39°C / 959 RPM, 39°C / 935 RPM,
+  38°C / 949.5 RPM; arithmetic mean approximately 947.8 RPM. First ATE0 echo+OK
+  versus later OK is expected echo state, not a transport failure.
+- Updated PROJECT/PLAN/README/capabilities and next-connection guidance:
+  prioritize BLE for MacBook/Android, preserve SPP, reuse common ELM protocol
+  and capability logic. No new hardware queries, BLE implementation, module
+  changes or dependencies. Reports contain payload summaries, not exact CR/
+  prompt/notification bytes; do not label them exact framing fixtures.
+- This is owner-supplied physical evidence, not a successful Go BLE test.
+  Android, sustained operation, engine restart, polling latency/rate and
+  reconnect/stale behavior still need testing. M4 is not marked complete.
+- Verification: `make lint` (go vet and formatting) and `git diff --check`
+  passed; independently recalculated reported RPM/coolant and mean RPM using
+  Python stdlib. Documentation only; no new live tests or Go behavior changes.

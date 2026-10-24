@@ -28,10 +28,12 @@ Acceptance: open browser on MacBook, simulator dashboard updates live and surviv
 Acceptance: unit tests using fixture responses, including malformed/timeouts; useful output if no SPP port exists.
 
 ## M4 — Live source integration
+- First add the BLE GATT transport as the priority MacBook/Android path; keep Serial/SPP as an alternative. Owner comments on 2026-10-24 confirm IOS-Vlink and its actual GATT channels (see capabilities.md), with ECU responses in three engine-off and three engine-running sessions. Go BLE implementation and Android validation are still pending; resolve platform/backend and any dependency approval before code changes requiring new dependencies.
+- Adapt notification fragments and characteristic writes to the existing context-aware elm327.Transport interface. Reuse the common ELM parser/framing, command allowlist, PID bitmap decoding and freshness rules; do not duplicate protocol logic or assume notification boundaries match responses. Validate characteristic properties and write mode on connection.
 - Connect serial ELM source to same telemetry interface as simulator; adaptive polling (RPM/speed higher priority, coolant/voltage lower), per-PID capability detection.
 - Exponential backoff reconnect, stale-data transitions, error metrics; never fabricate values.
 - Do not assume ISO 9141/14230 support means generic PID availability. Distinguish transport failure from ECU protocol failure.
-Acceptance: mock transport tests pass; live verification remains explicitly pending until hardware tested.
+Acceptance: mock transport and notification fragmentation/cancellation/disconnect tests pass; measure live polling rate, latency and stale transitions. Owner BLE tests do not verify the Go implementation, Android, long-duration stability or engine-restart recovery; test those explicitly.
 
 ## M5 — Android path
 - First validate browser-based UI on Teclast P85 over LAN; assess fullscreen/kiosk, sleep/wake, brightness, thermal/power behavior.
@@ -40,7 +42,7 @@ Acceptance: mock transport tests pass; live verification remains explicitly pend
 Acceptance: documented architecture decision and Android test checklist.
 
 ## Hardware test checklist
-1. With ignition on and car safely parked, pair Vgate and check macOS SPP serial port availability.
+1. With ignition on and car safely parked, prefer the observed IOS-Vlink BLE service/characteristics once the BLE transport exists. Classic SPP and /dev/cu.* enumeration remain an alternative; the current CLI supports only Serial/SPP.
 2. If port exists, read `ATI`, `ATDPN`, `0100`; then `010C`, `0105`, `010D`; capture raw output.
 3. Read `03` and preserve DTCs; never clear without explicit separate request.
 4. If port absent, report macOS transport limitation; try compatible Android or USB K-Line interface before concluding ECU is unsupported.
@@ -59,7 +61,7 @@ Acceptance: fuel computer works end-to-end in simulator with persisted resettabl
 
 ## Scope decision — OBD-only first (2026-10-21)
 - Current scope is read-only data obtainable through Vgate iCar Pro BLE 4.0 Dual and the vehicle ECU (model corrected by the owner on 2026-10-24); do not implement ESP32, vehicle wiring taps, auxiliary sensors, or body-signal hardware.
-- Use the confirmed Serial/Classic SPP path now. Keep the transport boundary extensible; BLE GATT requires actual service/characteristic discovery later. Do not assume standard BLE UART or concurrent Classic/BLE operation. BLE does not block M3/M4 over SPP.
+- Updated by owner comments on 2026-10-24: prioritize the physically confirmed BLE GATT path for MacBook/Android; retain Serial/Classic SPP as an alternative. Actual IOS-Vlink UUIDs and ECU responses are recorded in capabilities.md. Reuse one ELM parser/framer; do not assume concurrent Classic/BLE operation. M3 Serial/SPP is implemented; BLE transport integration is the next M4 prerequisite.
 - Discovery phase: record supported Mode 01 PID bitmaps (0100, 0120, 0140 etc. only where indicated), supported DTC/identification modes, protocol and raw responses. Distinguish adapter voltage from ECU-reported battery voltage.
 - Prioritize RPM, speed, coolant temperature, voltage and DTC; then MAP, IAT, throttle, load, oxygen-sensor data, trims; explore fuel rate/injector timing/ECU identifiers only when supported and documented. Avoid indiscriminate proprietary requests or any write commands.
 - Expose per-signal capability and freshness: supported, unsupported, not-yet-tested, temporarily-unavailable. Do not conflate these states.
