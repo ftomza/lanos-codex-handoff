@@ -1,25 +1,33 @@
 # Session handoff / status
 
 ## Current state
-M0–M2 complete. Working Go backend, deterministic simulator and embedded
-responsive dashboard are implemented and verified locally. Only simulator mode
-is available. Hardware has not been accessed or tested.
+M0–M3 complete. The dashboard remains simulator-only. The new Go read-only
+obdprobe provides macOS serial, ELM framing/recovery, capability discovery,
+PID/DTC decoding, bounded reconnect and private JSON export, verified offline.
+Issue #1 records the user's physical session on 2026-10-24; the new Go probe
+itself has not been physically tested.
 
 ## Next action
-M3: implement the read-only probe, ELM framing/parser and PID/DTC decoding with
-fixtures. Real adapter/ECU and Android tablet tests require a separate session
-and physical hardware; no compatibility claims are made.
+Follow docs/NEXT_CONNECTION.md for baseline and supported-PID reports on the
+parked car. Preserve raw data; verify 0120, 0101, ATRV and advertised MAP/IAT/
+trim/O2 readings. Then implement M4 as a separate live Source task, without
+substituting simulator values for missing vehicle data.
 
 ## Completed milestones
 - M0 — module, package boundaries, commands, README and Makefile.
 - M1 — nullable telemetry, freshness, cancellable source contract and simulator.
 - M2 — local HTTP/SSE transport, embedded responsive UI and bounded reconnect.
+- M3 — read-only diagnostic CLI, real-session fixture, discovery and recovery.
 
 ## Decisions and risks
 - Local-first, read-only diagnostics.
 - MacBook M3 is development host; Android Teclast P85 is target.
-- Bluetooth Classic SPP on macOS and Android tablet is not yet verified.
-- ECU identity and generic OBD-II PID support not yet verified.
+- Issue #1 observed /dev/cu.Android-Vlink, ELM327 v2.3 identity and A5 (KWP2000
+  fast init). Ignition changes can break Bluetooth; future connectivity/recovery
+  is not guaranteed. Android SPP and the new Go serial code need physical tests.
+- ECU identity remains unconfirmed. BE3EB811 and RPM/coolant/speed/Mode 03
+  responses are known; higher ranges and other readings remain pending.
+- Baud was not recorded in Issue #1; 38400/9600 remain explicit options.
 
 ## Work log
 Codex: append date, milestone, commands, test outcomes, blockers and next steps here.
@@ -93,3 +101,48 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   and PID support remain **untested**. M3/M4 protocol/serial tests are not claimed.
 - Delivery branch: `feat/lanos-dashboard-m0-m2`, created at the user's request.
 - Next: M3 in a separate task.
+
+### 2026-10-24 — M3, GitHub Issue #1
+
+- Read project instructions/docs and Issue #1 (no comments). Created branch
+  feat/m3-vgate-probe. User's untracked test.py is untouched/excluded.
+- Saved exact 13 reported exchanges with CRs/prompts and provenance in
+  internal/elm327/testdata/vgate-2026-10-24.json. Baud and individual observation
+  timestamps were not supplied and are not invented.
+- Real fixture decodes A5, BE3EB811, RPM=0, coolant=78°C, speed=0 and no stored
+  DTCs in that Mode 03 response. User reported Check Engine off; pending/permanent
+  codes, current MIL and exact ECU identity are not inferred.
+- Implemented stdlib-only macOS nonblocking raw 8N1 serial, context-aware I/O,
+  explicit port/baud and name-only enumeration. Other hosts have serial stubs.
+- Added read-only allowlist, serialized CR commands, 16 KiB response bound,
+  per-command deadlines (initial 0100: 30s), prompt/echo/chatter handling and
+  protocol/PID/DTC decoders. Errors distinguish adapter, ECU and transport.
+- Timeout blocks writes until delayed prompt recovery, then full re-init/scan.
+  Reopen also requires a recovery prompt. Retries/backoff are finite; no blind
+  input flush, automatic Bluetooth pairing, VIN requests or ECU writes/clears.
+- Discovery follows bitmap continuation bits and separates support from reading
+  availability. NO DATA never becomes zero/unsupported. Each attempt rebuilds
+  state; failed readings become stale and numeric values are cleared. ATRV is
+  adapter voltage, distinct from ECU voltage. Unknown decoders are raw_only.
+- CLI adds timestamped per-command raw/error audit, partial export on failure/
+  cancellation, default recognizable VIN redaction and exclusive-create 0600
+  JSON output. diagnostics/ is Git-ignored.
+- Tests were added first, observed missing-symbol failures, then passed. Cases:
+  real fixture, malformed/partial/conflicting frames, negative responses, DTC
+  padding, PID formulas, fragmentation, concurrent serialization, late prompt,
+  timeout/overflow, capability gating, unknown/unsupported/NO DATA, adapter vs
+  ECU errors, re-init/reopen/retry exhaustion, cancellation/output/redaction.
+  Serial I/O tests use anonymous pipes and pure settings, no physical devices.
+- Passed: gofmt on changed packages; `go test ./... -count=1`; `go test -race ./...`;
+  `go vet ./...`; `go build ./...`; `make lint`; `make test-web` (11 JS tests);
+  `GOOS=linux GOARCH=amd64 go build ./...`. Initial sandboxed checks hit restricted
+  Go cache/stdlib access; repeats with approved execution permissions passed.
+- go.mod/Go minimum/dependencies unchanged. goimports unavailable; imports use
+  gofmt-sorted stdlib/local groups. Built /private/tmp/lanos-obdprobe-m3.
+  --help passed; --list-ports --json listed names including Android-Vlink without
+  opening devices. No-argument launch correctly exited 1 with SPP/port guidance.
+- Updated README/PROJECT; added capabilities.md and NEXT_CONNECTION.md with
+  manual baseline/scan commands, evidence limits and reconnect guidance.
+- No adapter/ECU commands or physical tests performed by the agent. No software
+  blocker; physical Go probe operation, ignition-cycle recovery and additional
+  ECU responses remain pending. Next: user car session, then separate M4.

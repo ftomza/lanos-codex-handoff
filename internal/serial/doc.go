@@ -1,3 +1,3 @@
-// Package serial is reserved for explicit serial transport and probing in M3.
-// Bluetooth Classic SPP availability must be physically verified.
+// Package serial provides explicit macOS raw serial access and safe enumeration.
+// Bluetooth Classic SPP availability still depends on the OS and physical adapter.
 package serial

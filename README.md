@@ -1,8 +1,10 @@
 # Lanos Dashboard
 
-Local, read-only Chevrolet Lanos dashboard. M0–M2 use **simulated data only**.
-No hardware compatibility is claimed. The ECU may be Delphi MR-140; its identity
-and standard OBD-II PID support remain unconfirmed.
+Local, read-only Chevrolet Lanos dashboard and M3 diagnostic probe. The dashboard
+still uses **simulated data only**; live dashboard integration belongs to M4.
+Issue #1 records one successful physical Vgate/KWP2000 session. The new Go probe
+has been tested offline; its physical operation and the exact ECU model (possibly
+Delphi MR-140) remain unverified. See [capabilities](docs/capabilities.md).
 
 ## Development
 
@@ -77,13 +79,54 @@ out after 8 seconds; established connections use at least 8 seconds (or twice
 the configured freshness limit). After exhausting retries a touch-friendly
 button starts a fresh attempt budget. Successful telemetry resets that budget.
 
-## Hardware scope
+## Read-only diagnostic probe (M3)
 
-`cmd/obdprobe` is an explicit unavailable placeholder until M3 and exits with a
-message without accessing hardware. Port enumeration, read-only ELM commands,
-PID/DTC parsing and live adapter reconnection are **not implemented in M0–M2**.
-Their protocol tests and physical verification remain future work. Android 15 Go
-tablet performance, Bluetooth Classic/SPP and ECU compatibility remain untested.
+```sh
+go run ./cmd/obdprobe --help
+go run ./cmd/obdprobe --list-ports
+```
+
+Enumeration never opens a device. A probe requires an explicit port and should
+only be run with the vehicle parked. For the next physical session, follow
+[NEXT_CONNECTION.md](docs/NEXT_CONNECTION.md), including baseline and supported-PID
+scan commands, output preservation, error interpretation and reconnect limits.
+
+| Probe flag | Default | Meaning |
+| --- | --- | --- |
+| `--port` | empty | Explicit macOS `/dev/cu.*`; no automatic selection. |
+| `--baud` | `38400` | `38400` or `9600`; Issue #1 does not establish the baud. |
+| `--timeout` | `3s` | Entire command, including partial write and prompt read; also port open. |
+| `--initial-timeout` | `30s` | Each initial `0100` protocol search. |
+| `--recovery-timeout` | `30s` | Wait for a delayed prompt without sending commands. |
+| `--retries` | `2` | Additional attempts, maximum 5; backoff 0.5, 1, 2, 4, 4 seconds. |
+| `--scan-supported` | false | Follow advertised bitmap continuations and sample declared PIDs. |
+| `--json` | false | One JSON report on stdout instead of a human-readable command audit. |
+| `--output` | empty | Exclusive-create JSON file with permissions 0600; never overwrite logs. |
+| `--redact-vin` | true | Redact recognizable unsolicited VIN text/Mode 09 VIN lines. VIN is never requested. |
+
+The baseline initializes `ATZ`, `ATE0`, `ATL0`, `ATS0`, `ATH0`, `ATI`, `ATSP0`,
+reads `0100` and `ATDPN`, queries adapter voltage `ATRV`, then RPM/coolant/speed/MIL
+only if advertised, and reads stored DTCs with `03`. A full scan follows each
+continuation only when bit 32 permits it. Unknown decoder payloads are preserved
+as `raw_only`, with no invented numeric value. MAF/fuel level are never assumed.
+
+Each report includes per-command start/end timestamps, raw bytes (CR escaped in
+JSON), status/error, response timestamps and per-PID support evidence. `NO DATA`
+is temporary unavailability; missing values are null. `status=partial` means the
+probe finished but some responses could not be used; it exits 0. A fatal adapter,
+transport or synchronization failure sets `failed`, exports the partial audit and
+exits nonzero. Ctrl+C also preserves the audit through normal cancellation.
+
+Responses are limited to 16 KiB per command. A timeout blocks later writes until
+a prompt is consumed, followed by full initialization/discovery. A reopened port
+also requires a recovery prompt after a previous incomplete command. If it never
+arrives, the probe stops after its retry budget and requires manual intervention;
+it neither flushes input blindly nor repairs system Bluetooth pairing.
+
+Real serial access uses native macOS nonblocking raw 8N1 termios, no third-party
+Go modules or `stty`. Other platforms can build and run offline tests but cannot
+open real ports through this implementation. Physical tests of this Go code and
+Android 15 Go performance/Bluetooth remain pending.
 
 ## Boundaries
 
@@ -91,9 +134,11 @@ tablet performance, Bluetooth Classic/SPP and ECU compatibility remain untested.
 - `internal/sim`: deterministic simulator implementing the source contract.
 - `internal/server`: HTTP transport and telemetry distribution.
 - `web`: embedded HTML, CSS, JavaScript; no third-party assets.
-- `internal/elm327`, `internal/serial`: reserved for M3/M4, no hardware access.
+- `internal/elm327`: read-only allowlist, framing, recovery, parsers and decoders.
+- `internal/serial`: macOS serial and enumeration; no implicit device access.
+- `internal/probe`: finite capability discovery, sampling and reconnect/reporting.
 - `cmd/dashboard`: configuration, lifecycle, application composition.
-- `cmd/obdprobe`: explicit unavailable placeholder until M3.
+- `cmd/obdprobe`: explicit read-only diagnostic CLI and private JSON export.
 
 Future live sources will use the same telemetry contract. Diagnostics must stay
 read-only; DTC clearing and ECU writes are outside MVP. Bluetooth Classic SPP may
