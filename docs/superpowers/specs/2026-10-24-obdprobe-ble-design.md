@@ -10,7 +10,7 @@ The user chose native Go BLE and explicitly authorized upgrading the project to
 Go 1.27. The earlier Python/bleak bridge proposal is withdrawn. No Python runtime
 or user diagnostic scripts belong in the production path.
 
-Recommended dependency, pending approval to add it: tinygo.org/x/bluetooth
+User-approved dependency: tinygo.org/x/bluetooth
 v0.16.0 and its required transitive dependencies. Pin the tagged release rather
 than a moving branch. Its module requires Go 1.25, compatible with the approved
 Go 1.27 project minimum. Normal Go builds work; the TinyGo compiler is unnecessary.

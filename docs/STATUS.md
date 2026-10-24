@@ -2,19 +2,19 @@
 
 ## Current state
 M0–M3 complete. The dashboard remains simulator-only. The new Go read-only
-obdprobe provides macOS serial, ELM framing/recovery, capability discovery,
-PID/DTC decoding, bounded reconnect and private JSON export, verified offline.
-Issue #1 records the user's successful physical session on 2026-10-24. A later
-physical test of the Go probe opened the port but received no ATZ response;
-successful Go adapter/ECU communication remains unverified. Bluetooth dropped
-even while a diagnostic helper held the port open without sending commands.
+obdprobe provides macOS native BLE and serial, shared ELM framing/recovery,
+capability discovery, PID/DTC decoding, bounded reconnect and private JSON export.
+Native Go BLE passed a physical baseline on 2026-10-24 with this MacBook/Vgate/
+Lanos: RPM 889.25, coolant 52°C, speed 0, ATRV 11.0V, MIL off and no stored DTCs
+in the Mode 03 response. All 12 commands succeeded; connection closed normally.
+Earlier Go SPP attempts received no ATZ response; their root cause is unresolved.
 
 Owner correction: the device is **Vgate iCar Pro BLE 4.0 Dual**. Classic SPP
 through /dev/cu.Android-Vlink on MacBook M3 is confirmed in the owner's comment.
 New owner comments confirm BLE GATT discovery and real ECU responses on MacBook
 M3: three engine-off and three engine-running sessions without re-pairing.
-BLE is now the priority direction; current Go code still implements Serial/SPP
-only. Android, Go BLE and sustained reliability remain unverified.
+BLE is the priority direction and is implemented in Go using the approved
+tinygo.org/x/bluetooth v0.16.0. Android and sustained reliability remain unverified.
 The agent also repeated three successful engine-running BLE sessions using the
 existing Python environment and the user's unchanged test2.py, followed by
 60.17s of continuous RPM/coolant polling without observed errors or disconnects.
@@ -22,21 +22,15 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
-Current scope clarified by the user: fix the Go diagnostic utility obdprobe
-first; dashboard/live Source integration is a later task. Proposed CLI BLE design
-is in docs/superpowers/specs/2026-10-24-obdprobe-ble-design.md. User chose native
-Go BLE and approved Go 1.27; the version directive is updated. Recommended
-library is tinygo.org/x/bluetooth v0.16.0, awaiting approval to add this dependency
-and its transitives. No BLE implementation code has been changed yet.
-Use the confirmed IOS-Vlink GATT channels behind elm327.Transport and retain SPP.
-The previous request for the Python/SPP environment no longer blocks this path.
-Use the selected macOS BLE backend after dependency approval; do not claim a BLE
-CLI already exists. Follow with M4 live
-Source, measured polling latency/rate, freshness and bounded reconnect tests.
-Before the next physical run, confirm the current engine/ignition state afresh;
-the newest owner evidence includes engine-running tests performed separately.
-Preserve raw data and obtain 0101 and advertised MAP/IAT/trim/O2 readings
-only through capability-gated read-only polling. See docs/NEXT_CONNECTION.md.
+The requested Go utility fix is implemented and physically verified for one BLE
+baseline. Build both binaries with make build-obdprobe; use
+bin/obdprobe --transport=ble --ble-name=IOS-Vlink --retries=0 with a fresh output
+filename. See docs/NEXT_CONNECTION.md for the next supported-PID scan, after
+confirming current car/ignition state. Preserve shared recovery/capability rules.
+Dashboard/live Source integration remains the separate M4 task; no live dashboard
+was added. Native Go endurance, ignition-cycle reconnect and stale injection
+still need physical tests. Read-only 0101 is now measured; MAP/IAT/trim/O2 remain
+pending capability-gated readings.
 0120 and ATRV have now been read over Python BLE: C0000000 and 10.9–11.0V
 with engine running. Verify the unexpectedly low adapter voltage with a multimeter
 at the battery terminals; it is not a direct generator or ECU voltage measurement.
@@ -46,6 +40,7 @@ at the battery terminals; it is not a direct generator or ECU voltage measuremen
 - M1 — nullable telemetry, freshness, cancellable source contract and simulator.
 - M2 — local HTTP/SSE transport, embedded responsive UI and bounded reconnect.
 - M3 — read-only diagnostic CLI, real-session fixture, discovery and recovery.
+- M3 follow-up — native Go BLE transport, private export, baseline physically passed.
 
 ## Decisions and risks
 - Local-first, read-only diagnostics.
@@ -377,3 +372,53 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   make lint (including go vet and gofmt check); go build ./...; make test-web
   (11 tests); git diff --check. Build emitted a nonfatal sandbox stat-cache write
   warning; all commands exited 0. No source/test changes or new modules.
+
+### 2026-10-24 — native Go BLE obdprobe implemented and physically tested
+
+- User explicitly approved tinygo.org/x/bluetooth v0.16.0 with transitives and
+  implementation of the reviewed native design; Go 1.27 upgrade was already
+  authorized. Added pinned go.mod/go.sum requirements. TLS/cache sandbox failures
+  were retried with approved execution; no Python dependency in production.
+- Added bounded stdlib process transport, native Go helper behind the nativeble
+  build tag, observed GATT UUIDs and shared ELM transport integration. Main CLI,
+  --help, enumeration, serial mode and ordinary tests do not initialize
+  CoreBluetooth. Mac helper is built with CGO; unsupported builds fail clearly.
+- New flags: --transport=serial|ble, --ble-name, --ble-connect-timeout,
+  --ble-helper. Reject mixed options; no silent fallback. BLE report source is
+  elm327_ble/ble_gatt with profile metadata and no serial baud/port. Human output
+  now includes adapter ATRV and status. BLE uses ATE0/ATL0/ATI/ATSP0 without ATZ;
+  serial initialization, allowlist, discovery, decoding and recovery are reused.
+- Tests were written first and observed failing on missing Config/transport/
+  helper symbols, unsupported flags, absent physical fixture and missing human
+  voltage output. Then implemented and passed. Coverage includes real raw
+  responses, interleaved notification/ack, fragmented reads, ack identity after
+  timeout, startup failure/cancel, EOF, bounds, close unblocking and forced child
+  termination/reaping. Fixed a test assumption that fast child errors always
+  occur after Open returns; both safe outcomes are accepted.
+- Full checks passed: go test ./... -count=1; go test -race ./...; make lint
+  (vet/format); make build-obdprobe; make test-web (11 tests);
+  GOOS=linux GOARCH=amd64 go build ./.... Native helper compiled darwin/arm64.
+  --help and --list-ports --json ran without opening devices. goimports remains
+  unavailable; used gofmt and manually grouped stdlib/local imports.
+- User reconfirmed parked car, engine running and permission for one short Go
+  probe. Ran bin/obdprobe --transport=ble --ble-name=IOS-Vlink
+  --ble-connect-timeout=30s --timeout=3s --initial-timeout=30s --retries=0
+  --output=diagnostics/native-ble-engine-on-20261024-001.json. Complete, exit 0,
+  one attempt, all 12 commands OK, clean close. No second hardware run started.
+- Physical Go results: ATI ELM327 v2.3; 0100 BE3EB811; ATDPN A5; ATRV 11.0V;
+  010C 410C0DE5 = 889.25 RPM; 0105 41055C = 52°C; 010D 410D00 = 0 km/h;
+  0101 41010007E1A1 = MIL false / stored count 0;
+  03 43000000000000 = no stored codes in that response. Pending/permanent codes,
+  exact ECU identity and voltage accuracy remain unconfirmed. Low ATRV still
+  requires independent battery-terminal measurement.
+- Added exact physical response fixture: 30 Python BLE exchanges plus 12 from
+  this Go report, with provenance and host receipt/completion timestamps;
+  notification boundaries and ECU capture times are not invented. Full private
+  report remains ignored/0600; user test.py/test2.py unchanged and excluded.
+- Updated build/runtime instructions, capability evidence, dependency license
+  notices and implementation plan. Dashboard remains simulator-only, M4 not
+  completed. Next: supported scan and native endurance/reconnect tests, then M4.
+- Final checks repeated after adding the native responses and human-readable MIL:
+  full Go tests/race, lint, native build, 11 web tests, Linux cross-build and
+  go vet -tags=nativeble ./cmd/obdprobe-ble all passed. Native backend was not
+  queried again after the single authorized physical baseline.

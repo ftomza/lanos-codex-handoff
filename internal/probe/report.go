@@ -4,6 +4,7 @@ package probe
 import (
 	"time"
 
+	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/blewire"
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/elm327"
 )
 
@@ -58,12 +59,13 @@ type AdapterVoltage struct {
 }
 
 type Report struct {
+	BLE            *BLEInfo         `json:"ble,omitzero"`
 	Device         DeviceInfo       `json:"device"`
 	Transport      string           `json:"transport"`
 	Source         string           `json:"source"`
 	Status         string           `json:"status"`
-	Port           string           `json:"port"`
-	Baud           int              `json:"baud"`
+	Port           string           `json:"port,omitzero"`
+	Baud           int              `json:"baud,omitzero"`
 	StartedAt      time.Time        `json:"started_at"`
 	CompletedAt    time.Time        `json:"completed_at"`
 	Attempts       int              `json:"attempts"`
@@ -78,12 +80,24 @@ type Report struct {
 	Error          string           `json:"error,omitzero"`
 }
 
+type BLEInfo struct {
+	Name    string `json:"name"`
+	Service string `json:"service"`
+	RX      string `json:"rx_notify"`
+	TX      string `json:"tx_write"`
+}
+
 func resetReport(report *Report, cfg Config, attempt int) {
 	logs, started := report.Commands, report.StartedAt
 	*report = Report{Device: deviceInfo(cfg.AdapterModel), Transport: "serial_spp", Source: "elm327_serial", Status: "complete", Port: cfg.Port, Baud: cfg.Baud, StartedAt: started,
 		Attempts: attempt, Commands: logs, Capabilities: make([]Capability, 255), Bitmaps: []Bitmap{}, Warnings: []string{},
 		StoredDTCs:     DTCResult{Source: "ecu_mode03", Status: "not_yet_tested"},
 		AdapterVoltage: AdapterVoltage{Source: "adapter_atrv", Status: "not_yet_tested", Unit: "V"}}
+	if cfg.Transport == "ble" {
+		report.Transport, report.Source = "ble_gatt", "elm327_ble"
+		report.Port, report.Baud = "", 0
+		report.BLE = &BLEInfo{Name: cfg.BLEName, Service: blewire.Service, RX: blewire.RX, TX: blewire.TX}
+	}
 	for i := range report.Capabilities {
 		pid := byte(i + 1)
 		report.Capabilities[i] = Capability{PID: elm327.HexPID(pid), Name: elm327.PIDName(pid), Source: "ecu_mode01", Support: "not_yet_tested", Status: "not_yet_tested"}

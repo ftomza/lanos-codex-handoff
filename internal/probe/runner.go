@@ -10,6 +10,10 @@ import (
 )
 
 type Config struct {
+	Transport       string
+	BLEName         string
+	BLEHelper       string
+	ConnectTimeout  time.Duration
 	AdapterModel    string
 	Port            string
 	Baud            int
@@ -27,6 +31,15 @@ type Runner struct {
 }
 
 func New(cfg Config, open func(context.Context) (elm327.Transport, error)) (*Runner, error) {
+	if cfg.Transport == "" {
+		cfg.Transport = "serial"
+	}
+	if cfg.Transport != "serial" && cfg.Transport != "ble" || cfg.ConnectTimeout < 0 {
+		return nil, fmt.Errorf("invalid transport or connection timeout")
+	}
+	if cfg.Transport == "ble" && cfg.BLEName == "" {
+		cfg.BLEName = "IOS-Vlink"
+	}
 	if cfg.Timeout < 0 || cfg.InitialTimeout < 0 || cfg.RecoveryTimeout < 0 || cfg.Retries < 0 || cfg.Retries > 5 || open == nil {
 		return nil, fmt.Errorf("invalid probe configuration; retries must be 0..5 and timeouts positive")
 	}
@@ -38,6 +51,12 @@ func New(cfg Config, open func(context.Context) (elm327.Transport, error)) (*Run
 	}
 	if cfg.RecoveryTimeout == 0 {
 		cfg.RecoveryTimeout = 30 * time.Second
+	}
+	if cfg.ConnectTimeout == 0 {
+		cfg.ConnectTimeout = cfg.Timeout
+		if cfg.Transport == "ble" {
+			cfg.ConnectTimeout = 30 * time.Second
+		}
 	}
 	return &Runner{config: cfg, open: open, wait: wait}, nil
 }
@@ -127,12 +146,12 @@ func (r *Runner) Run(ctx context.Context) (Report, error) {
 }
 
 func (r *Runner) openPort(ctx context.Context, report *Report) (elm327.Transport, error) {
-	ctx, cancel := context.WithTimeout(ctx, r.config.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, r.config.ConnectTimeout)
 	defer cancel()
 	started := time.Now().UTC()
 	wire, err := r.open(ctx)
 	if err != nil {
-		report.Commands = append(report.Commands, CommandLog{Attempt: report.Attempts, Action: "open", Source: "serial_transport", StartedAt: started, CompletedAt: time.Now().UTC(), Status: elm327.TransportError, Error: err.Error()})
+		report.Commands = append(report.Commands, CommandLog{Attempt: report.Attempts, Action: "open", Source: report.Transport, StartedAt: started, CompletedAt: time.Now().UTC(), Status: elm327.TransportError, Error: err.Error()})
 	}
 	return wire, err
 }

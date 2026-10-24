@@ -55,7 +55,11 @@ func (r *Runner) scan(ctx context.Context, s *elm327.Session, report *Report) er
 }
 
 func (r *Runner) initialize(ctx context.Context, s *elm327.Session, report *Report) error {
-	for _, command := range []string{"ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATI", "ATSP0"} {
+	commands := []string{"ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATI", "ATSP0"}
+	if r.config.Transport == "ble" {
+		commands = []string{"ATE0", "ATL0", "ATI", "ATSP0"}
+	}
+	for _, command := range commands {
 		response, err := r.command(ctx, s, report, command)
 		if err != nil {
 			return err

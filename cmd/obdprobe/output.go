@@ -109,6 +109,13 @@ func showReport(w io.Writer, report probe.Report, redact bool) error {
 			return err
 		}
 	}
+	voltage := "unknown"
+	if report.AdapterVoltage.Value != nil && report.AdapterVoltage.Status == "available" {
+		voltage = fmt.Sprintf("%.1f V", *report.AdapterVoltage.Value)
+	}
+	if _, err := fmt.Fprintf(w, "Adapter supply (ATRV): %s; status=%s; not generator terminal or ECU voltage\n", voltage, report.AdapterVoltage.Status); err != nil {
+		return err
+	}
 	for _, c := range report.Capabilities {
 		if c.Support == "not_yet_tested" || c.Support == "unsupported" {
 			continue
@@ -116,6 +123,9 @@ func showReport(w io.Writer, report probe.Report, redact bool) error {
 		value := "unknown"
 		if c.Value != nil {
 			value = fmt.Sprintf("%.3f %s", *c.Value, c.Unit)
+		}
+		if c.MIL != nil && c.DTCCount != nil {
+			value = fmt.Sprintf("mil_on=%t stored_dtc_count=%d", *c.MIL, *c.DTCCount)
 		}
 		if _, err := fmt.Fprintf(w, "PID %s %-30s support=%s status=%s value=%s\n", c.PID, c.Name, c.Support, c.Status, value); err != nil {
 			return err

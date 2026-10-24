@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/elm327"
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/probe"
 )
 
@@ -38,5 +39,21 @@ func TestRedactionPolicy(t *testing.T) {
 	}
 	if got := redactVIN("4100BE3EB811\r410C4902\r>"); got != "4100BE3EB811\r410C4902\r>" {
 		t.Fatal("redaction damaged ordinary PID data")
+	}
+}
+
+func TestHumanOutputShowsAdapterVoltageAndUntestedDTCStatus(t *testing.T) {
+	t.Parallel()
+	var out bytes.Buffer
+	r := probe.Report{AdapterVoltage: probe.AdapterVoltage{Value: new(10.9), Status: "available", Unit: "V"}, StoredDTCs: probe.DTCResult{Status: "not_yet_tested"},
+		Capabilities: []probe.Capability{{PID: "01", Support: "supported", Status: "available", Measurement: elm327.Measurement{MIL: new(false), DTCCount: new(0)}}}}
+	if err := showReport(&out, r, true); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "10.9 V") || !strings.Contains(out.String(), "ATRV") || !strings.Contains(out.String(), "not_yet_tested") {
+		t.Fatalf("missing reading/provenance: %s", out.String())
+	}
+	if !strings.Contains(out.String(), "mil_on=false") || !strings.Contains(out.String(), "stored_dtc_count=0") {
+		t.Fatalf("MIL was displayed as unknown: %s", out.String())
 	}
 }
