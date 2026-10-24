@@ -10,6 +10,7 @@ import (
 )
 
 type Config struct {
+	AdapterModel    string
 	Port            string
 	Baud            int
 	Timeout         time.Duration

@@ -7,6 +7,10 @@ PID/DTC decoding, bounded reconnect and private JSON export, verified offline.
 Issue #1 records the user's physical session on 2026-10-24; the new Go probe
 itself has not been physically tested.
 
+Owner correction: the device is **Vgate iCar Pro BLE 4.0 Dual**. Classic SPP
+through /dev/cu.Android-Vlink on MacBook M3 is confirmed in the owner's comment.
+Current transport remains Serial/SPP; BLE GATT awaits actual discovery.
+
 ## Next action
 Follow docs/NEXT_CONNECTION.md for baseline and supported-PID reports on the
 parked car. Preserve raw data; verify 0120, 0101, ATRV and advertised MAP/IAT/
@@ -146,3 +150,27 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
 - No adapter/ECU commands or physical tests performed by the agent. No software
   blocker; physical Go probe operation, ignition-cycle recovery and additional
   ECU responses remain pending. Next: user car session, then separate M4.
+
+### 2026-10-24 — owner comment: adapter model correction
+
+- Read the new owner comment:
+  https://github.com/ftomza/lanos-codex-handoff/issues/1#issuecomment-6383158184.
+  The actual model is Vgate iCar Pro BLE 4.0 Dual, replacing the earlier incorrect
+  Bluetooth 3.0 model description. Classic SPP via Android-Vlink on MacBook M3
+  has already worked; the new Go implementation still needs its physical test.
+- Corrected PROJECT, PLAN, README, capabilities, next-connection instructions
+  and fixture metadata. Original command/response bytes are unchanged.
+- Diagnostic reports now separate device.model/model_source/evidence_url,
+  transport=serial_spp and the actual ATI adapter identity. The CLI defaults to
+  the owner-reported model; --adapter-model overrides it, including empty for
+  unknown. Library callers with no model information retain unknown context.
+- Kept the existing context-aware transport interface. No BLE code, UUID/UART
+  assumptions or concurrent Classic/BLE guarantees. M3 remains usable over SPP
+  without waiting for BLE discovery.
+- Added failing model/provenance/default tests before implementation, then
+  verified owner/custom/unknown model handling and unchanged ATI identity.
+- Passed: gofmt -w internal/probe cmd/obdprobe; go test ./... -count=1;
+  go test -race ./...; go vet ./...; go build ./...; make lint; git diff --check.
+- No Go version/dependency changes, hardware access or new blocker. User's
+  untracked test.py remains untouched. Continue with the manual SPP session;
+  BLE service/characteristic discovery is a separate future task.

@@ -1,6 +1,10 @@
 {
   "source": "https://github.com/ftomza/lanos-codex-handoff/issues/1",
   "observed_on": "2026-10-24",
+  "adapter_model": "Vgate iCar Pro BLE 4.0 Dual",
+  "adapter_model_source": "owner_reported",
+  "adapter_model_evidence": "https://github.com/ftomza/lanos-codex-handoff/issues/1#issuecomment-6383158184",
+  "transport": "serial_spp",
   "port": "/dev/cu.Android-Vlink",
   "note": "User-reported physical session; baud and per-command timestamps were not supplied. CR escapes below are actual response bytes after JSON decoding.",
   "exchanges": [

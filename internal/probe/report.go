@@ -58,6 +58,8 @@ type AdapterVoltage struct {
 }
 
 type Report struct {
+	Device         DeviceInfo       `json:"device"`
+	Transport      string           `json:"transport"`
 	Source         string           `json:"source"`
 	Status         string           `json:"status"`
 	Port           string           `json:"port"`
@@ -78,7 +80,7 @@ type Report struct {
 
 func resetReport(report *Report, cfg Config, attempt int) {
 	logs, started := report.Commands, report.StartedAt
-	*report = Report{Source: "elm327_serial", Status: "complete", Port: cfg.Port, Baud: cfg.Baud, StartedAt: started,
+	*report = Report{Device: deviceInfo(cfg.AdapterModel), Transport: "serial_spp", Source: "elm327_serial", Status: "complete", Port: cfg.Port, Baud: cfg.Baud, StartedAt: started,
 		Attempts: attempt, Commands: logs, Capabilities: make([]Capability, 255), Bitmaps: []Bitmap{}, Warnings: []string{},
 		StoredDTCs:     DTCResult{Source: "ecu_mode03", Status: "not_yet_tested"},
 		AdapterVoltage: AdapterVoltage{Source: "adapter_atrv", Status: "not_yet_tested", Unit: "V"}}

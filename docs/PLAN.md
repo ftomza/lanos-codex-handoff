@@ -58,7 +58,8 @@ Acceptance: documented architecture decision and Android test checklist.
 Acceptance: fuel computer works end-to-end in simulator with persisted resettable trip totals and transparent estimated/unknown states. Live accuracy and ECU PID support remain pending hardware verification. Implement after M3/M4 as appropriate; no ECU writes.
 
 ## Scope decision — OBD-only first (2026-10-21)
-- Current scope is read-only data obtainable through Vgate iCar Pro Bluetooth 3.0 and the vehicle ECU; do not implement ESP32, vehicle wiring taps, auxiliary sensors, or body-signal hardware.
+- Current scope is read-only data obtainable through Vgate iCar Pro BLE 4.0 Dual and the vehicle ECU (model corrected by the owner on 2026-10-24); do not implement ESP32, vehicle wiring taps, auxiliary sensors, or body-signal hardware.
+- Use the confirmed Serial/Classic SPP path now. Keep the transport boundary extensible; BLE GATT requires actual service/characteristic discovery later. Do not assume standard BLE UART or concurrent Classic/BLE operation. BLE does not block M3/M4 over SPP.
 - Discovery phase: record supported Mode 01 PID bitmaps (0100, 0120, 0140 etc. only where indicated), supported DTC/identification modes, protocol and raw responses. Distinguish adapter voltage from ECU-reported battery voltage.
 - Prioritize RPM, speed, coolant temperature, voltage and DTC; then MAP, IAT, throttle, load, oxygen-sensor data, trims; explore fuel rate/injector timing/ECU identifiers only when supported and documented. Avoid indiscriminate proprietary requests or any write commands.
 - Expose per-signal capability and freshness: supported, unsupported, not-yet-tested, temporarily-unavailable. Do not conflate these states.

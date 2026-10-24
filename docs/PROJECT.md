@@ -4,9 +4,10 @@
 - Vehicle: Chevrolet Lanos 1.5 8V, reported 2007; VIN indicates ZAZ origin and potentially 2008 model year. 16-pin diagnostic connector.
 - ECU: likely Delphi MR-140, **not confirmed** by authoritative ECU part label or live identification.
 - Check Engine was initially reported on; Issue #1 (2026-10-24) reports it is now off. Preserve trouble codes and never erase them. One Mode 03 response contained no stored DTCs; pending/permanent codes were not queried.
-- Adapter: Vgate iCar Pro Bluetooth 3.0, Bluetooth Classic SPP, ELM327-like AT interface. Issue #1 reports `ELM327 v2.3` and one successful read-only physical session.
+- Adapter: **Vgate iCar Pro BLE 4.0 Dual**, corrected by the owner in [Issue #1 comment](https://github.com/ftomza/lanos-codex-handoff/issues/1#issuecomment-6383158184). Classic SPP through `/dev/cu.Android-Vlink` worked on MacBook M3. `ELM327 v2.3` is the reported ATI identity, not a detected product model.
 - Development machine: MacBook M3, macOS. Issue #1 observed `/dev/cu.Android-Vlink` and auto-selected protocol A5 (ISO 14230-4 KWP2000 fast init); Bluetooth can disconnect across ignition changes. Future port availability/reconnect are not guaranteed.
 - Target device: Teclast P85, 8-inch 1280×800, Android 15 Go, 3 GB physical RAM, Bluetooth 5.4. Bluetooth Classic/SPP support on tablet remains to be verified.
+- Transport: Serial/SPP now, behind the context-aware transport interface. BLE GATT is future work after service/characteristic discovery; do not assume standard BLE UART or simultaneous Classic/BLE connections from the Dual product name.
 
 ## Goal
 Deliver a local-first read-only vehicle dashboard: speed, RPM, coolant temperature, voltage (if available), connection health, DTC reading, and optional telemetry history. Start on MacBook with simulator; test adapter/ECU when available; deploy to Android later.

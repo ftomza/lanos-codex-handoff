@@ -25,6 +25,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps depe
 	flags := flag.NewFlagSet("obdprobe", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	cfg := probe.Config{}
+	flags.StringVar(&cfg.AdapterModel, "adapter-model", probe.KnownAdapterModel, "contextual device model, not ATI detection; empty means unknown")
 	flags.StringVar(&cfg.Port, "port", "", "explicit macOS /dev/cu.* port; never selected automatically")
 	flags.IntVar(&cfg.Baud, "baud", 38400, "baud rate: 38400 or 9600 (Issue #1 did not record the baud)")
 	flags.DurationVar(&cfg.Timeout, "timeout", 3*time.Second, "per-command/open timeout")

@@ -96,6 +96,9 @@ func showReport(w io.Writer, report probe.Report, redact bool) error {
 	if _, err := fmt.Fprintf(w, "Read-only probe: %s; attempts=%d; source=%s\n", report.Status, report.Attempts, report.Source); err != nil {
 		return err
 	}
+	if _, err := fmt.Fprintf(w, "Device model: %s; model_source=%s; transport=%s (adapter identity comes from ATI)\n", clean(report.Device.Model), report.Device.ModelSource, report.Transport); err != nil {
+		return err
+	}
 	for _, record := range report.Commands {
 		if _, err := fmt.Fprintf(w, "%s attempt=%d %s %s status=%s raw=%q error=%q\n", record.CompletedAt.Format("2006-01-02T15:04:05.000Z07:00"), record.Attempt, record.Action, record.Command, record.Status, clean(record.RawResponse), clean(record.Error)); err != nil {
 			return err

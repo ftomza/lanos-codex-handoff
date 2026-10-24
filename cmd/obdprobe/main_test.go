@@ -54,7 +54,7 @@ func TestReportOutputAndVINRedaction(t *testing.T) {
 	const vin = "1HGCM82633A004352"
 	deps := dependencies{probe: func(ctx context.Context, cfg probe.Config) (probe.Report, error) {
 		calls++
-		if cfg.Port != "/dev/cu.fake" || cfg.Baud != 9600 || !cfg.ScanSupported || cfg.InitialTimeout != 30*time.Second {
+		if cfg.Port != "/dev/cu.fake" || cfg.Baud != 9600 || !cfg.ScanSupported || cfg.InitialTimeout != 30*time.Second || cfg.AdapterModel != "Vgate iCar Pro BLE 4.0 Dual" {
 			t.Fatalf("flags: %+v", cfg)
 		}
 		return probe.Report{Source: "test_fixture", Status: "partial", Commands: []probe.CommandLog{{RawResponse: "unsolicited VIN: " + vin + "\r>"}}}, nil

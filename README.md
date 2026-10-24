@@ -6,6 +6,12 @@ Issue #1 records one successful physical Vgate/KWP2000 session. The new Go probe
 has been tested offline; its physical operation and the exact ECU model (possibly
 Delphi MR-140) remain unverified. See [capabilities](docs/capabilities.md).
 
+The owner corrected the device model to **Vgate iCar Pro BLE 4.0 Dual** in an
+[Issue #1 comment](https://github.com/ftomza/lanos-codex-handoff/issues/1#issuecomment-6383158184).
+Classic SPP through `/dev/cu.Android-Vlink` has worked on MacBook M3. The current
+probe uses Serial/SPP. BLE GATT is deferred until service/characteristic discovery;
+the product name does not establish a standard BLE UART or simultaneous links.
+
 ## Development
 
 Requires Go 1.24 or newer. No external Go modules, network, database, frontend
@@ -93,6 +99,7 @@ scan commands, output preservation, error interpretation and reconnect limits.
 
 | Probe flag | Default | Meaning |
 | --- | --- | --- |
+| `--adapter-model` | `Vgate iCar Pro BLE 4.0 Dual` | Owner-reported context, not ATI detection; override for another device or use `--adapter-model=''` for unknown. |
 | `--port` | empty | Explicit macOS `/dev/cu.*`; no automatic selection. |
 | `--baud` | `38400` | `38400` or `9600`; Issue #1 does not establish the baud. |
 | `--timeout` | `3s` | Entire command, including partial write and prompt read; also port open. |
@@ -116,6 +123,14 @@ is temporary unavailability; missing values are null. `status=partial` means the
 probe finished but some responses could not be used; it exits 0. A fatal adapter,
 transport or synchronization failure sets `failed`, exports the partial audit and
 exits nonzero. Ctrl+C also preserves the audit through normal cancellation.
+
+The report separates `device.model` from the original `adapter` ATI identity.
+For this device the model's source is `owner_reported`, with `device.evidence_url`
+linking to the correction; a different explicit model is `user_supplied`, and an
+empty model is `unknown`. `transport=serial_spp` describes the current backend,
+not BLE capability. The `elm327.Transport` Read/Write/Close boundary remains
+independent of serial; a future GATT adapter must discover its actual channels
+and implement stream framing rather than assuming a UART service.
 
 Responses are limited to 16 KiB per command. A timeout blocks later writes until
 a prompt is consumed, followed by full initialization/discovery. A reopened port

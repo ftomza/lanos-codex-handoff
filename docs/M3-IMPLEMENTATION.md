@@ -1,7 +1,12 @@
 # M3 — Vgate read-only probe implementation plan
 
 Source: https://github.com/ftomza/lanos-codex-handoff/issues/1 (read 2026-10-24;
-no comments). Existing M0–M2 and the user's untracked `test.py` are preserved.
+initial comments fetch returned none). The subsequent owner correction is
+https://github.com/ftomza/lanos-codex-handoff/issues/1#issuecomment-6383158184:
+device model Vgate iCar Pro BLE 4.0 Dual, confirmed Classic SPP on MacBook M3.
+Use Serial/SPP now; defer BLE GATT until discovery, without UART/concurrency
+assumptions. Model context and its provenance are separate from ATI identity.
+Existing M0–M2 and the user's untracked `test.py` are preserved.
 Branch: `feat/m3-vgate-probe`. No live device access during implementation.
 
 ## Boundaries and decisions
