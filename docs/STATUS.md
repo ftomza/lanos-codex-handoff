@@ -32,6 +32,14 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
+Owner requested live vehicle data in the existing dashboard, in a new feature
+branch. The plan calls this M4 (M6 is the fuel computer). Created
+feat/live-dashboard and prepared docs/superpowers/specs/2026-10-28-live-dashboard-design.md.
+Design review is pending; no live Source or dashboard behavior has changed yet.
+The proposed scope is the existing four instruments, native BLE/serial reuse,
+per-signal freshness, honest source labels and bounded reconnect. No new car
+session is authorized by this implementation request.
+
 The two owner recordings have been analyzed; see capabilities.md and private
 diagnostics/trip-analysis-20261028-001.json. Next validate the IAT channel and
 investigate failed cleanup after Ctrl+C, retaining the actual terminal error if
@@ -602,3 +610,30 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
 - Next: diagnose IAT and cancellation cleanup offline/at a separately agreed
   parked session as needed; then decide estimator quality rules and collect
   independent full-to-full fuel measurements before claiming fuel accuracy.
+
+### 2026-10-28 — live dashboard scope and proposed design
+
+- Owner requested real data in the dashboard and a new branch, calling it M6.
+  Clarified against PLAN: this is live integration M4, while fuel calculation is
+  M6. Created feat/live-dashboard from be86564; no renumbering or fuel estimator.
+- Reviewed current Source/Snapshot, server/SSE lifecycle, simulator-only CLI,
+  UI source text/watchdog, and recorder polling/capability/recovery boundaries.
+  The current global timestamps cannot safely express slow coolant/voltage
+  freshness independently of fast RPM; per-signal metadata is required.
+- Prepared a concrete proposed design: native internal/live Source reusing one
+  shared probe stream, explicit elm327/BLE flags and build target, four existing
+  instruments with LIVE labels, per-field expiry, bounded queues and retries,
+  and HTTP remaining available after source retry exhaustion. Preserve sim,
+  recorder/finite reports and the existing read-only/provenance constraints.
+- Compared direct Source reuse, tailing a recorder file and a duplicate BLE
+  stack; recommend direct reuse. IAT is not used to invent fuel values. Known
+  cleanup failure remains explicit; improve diagnostics and fix only a defect
+  reproduced by offline lifecycle/helper tests during integration.
+- Self-reviewed CLI defaults, no implicit hardware opening, listener-first
+  startup, independent field timestamps/TTLs, browser silence/retry behavior,
+  cancellation and offline acceptance. Exact design is in
+  docs/superpowers/specs/2026-10-28-live-dashboard-design.md.
+- Await owner design review as required by brainstorming before implementation.
+  No production code/dependency changes, hardware queries or new tests; this is
+  a design-only change. git diff --check passed. User test.py/test2.py and all
+  private recordings are untouched/excluded. M4/M6 not marked complete.
