@@ -16,6 +16,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/fuel/calibration/preview", s.handleFuel)
 	mux.HandleFunc("POST /api/fuel/calibration", s.handleFuel)
 	mux.HandleFunc("GET /api/snapshot", s.handleSnapshot)
+	mux.HandleFunc("GET /api/fuel/history/sessions", s.handleHistory)
+	mux.HandleFunc("GET /api/fuel/history/report", s.handleHistory)
 	mux.HandleFunc("GET /events", s.handleEvents)
 	mux.Handle("GET /", http.FileServerFS(web.Assets))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

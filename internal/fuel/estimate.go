@@ -7,6 +7,7 @@ import (
 )
 
 type Result struct {
+	Terms                                  *telemetry.SpeedDensityTerms
 	Flow                                   *float64
 	Until                                  time.Time
 	Method, Provenance, Confidence, Reason string
@@ -99,7 +100,7 @@ func (densityEstimator) Estimate(c Config, s telemetry.Snapshot, _ time.Time) Re
 		return unavailable("rpm_unavailable")
 	}
 	if *rpm == 0 {
-		return Result{Flow: new(0.0), Until: horizon(c, s, until), Provenance: "estimated_speed_density", Confidence: "low"}
+		return Result{Terms: &telemetry.SpeedDensityTerms{EngineStopped: true, RawFlowLPH: new(0.0), VE: c.VE, AFR: c.AFR, FuelDensityGL: c.Density}, Flow: new(0.0), Until: horizon(c, s, until), Provenance: "estimated_speed_density", Confidence: "low"}
 	}
 	if s.Source == telemetry.Live && !c.AllowUnverifiedIAT {
 		return unavailable("unverified_iat")
@@ -114,5 +115,5 @@ func (densityEstimator) Estimate(c Config, s telemetry.Snapshot, _ time.Time) Re
 	}
 	rho := *pressure * 1000 / (287.05 * (*temp + 273.15))
 	air := rho * (c.Displacement / 1000) * (*rpm / 120) * c.VE * 1000
-	return Result{Flow: new(air * 3600 / (c.AFR * c.Density)), Until: horizon(c, s, minTime(until, minTime(pUntil, tUntil))), Provenance: "estimated_speed_density", Confidence: "low"}
+	return Result{Terms: &telemetry.SpeedDensityTerms{PressurePa: new(*pressure * 1000), TemperatureK: new(*temp + 273.15), DensityKGM3: new(rho), VolumeM3S: new(c.Displacement / 1000 * *rpm / 120 * c.VE), AirGS: new(air), RawFlowLPH: new(air * 3600 / (c.AFR * c.Density)), VE: c.VE, AFR: c.AFR, FuelDensityGL: c.Density}, Flow: new(air * 3600 / (c.AFR * c.Density)), Until: horizon(c, s, minTime(until, minTime(pUntil, tUntil))), Provenance: "estimated_speed_density", Confidence: "low"}
 }

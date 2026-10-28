@@ -55,16 +55,20 @@ func runWith(ctx context.Context, args []string, output io.Writer, deps dashboar
 	if err != nil {
 		return errors.Join(err, source.Close(), listener.Close())
 	}
-	app, err := server.New(server.Config{SourceName: name, StaleAfter: o.staleAfter, Fuel: computer})
+	recorder, historyDir, err := openHistory(o, name, computer)
 	if err != nil {
 		return errors.Join(err, source.Close(), listener.Close(), closeFuel(computer))
+	}
+	app, err := server.New(server.Config{SourceName: name, StaleAfter: o.staleAfter, Fuel: computer, HistoryDir: historyDir, Recorder: recorder})
+	if err != nil {
+		return errors.Join(err, source.Close(), listener.Close(), closeFuel(computer), closeHistory(recorder))
 	}
 	label := "SIMULATOR; no vehicle connected"
 	if name == telemetry.Live {
 		label = "LIVE; read-only " + o.probe.Transport + "; waiting for adapter"
 	}
 	if _, err := fmt.Fprintf(output, "dashboard: %s at http://%s\n", label, listener.Addr()); err != nil {
-		return errors.Join(err, source.Close(), listener.Close(), closeFuel(computer))
+		return errors.Join(err, source.Close(), listener.Close(), closeFuel(computer), closeHistory(recorder))
 	}
 	return serve(ctx, listener, app, source)
 }

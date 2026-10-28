@@ -8,10 +8,13 @@ import (
 	"time"
 
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/fuel"
+	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/fuelhistory"
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/telemetry"
 )
 
 type Config struct {
+	HistoryDir     string
+	Recorder       *fuelhistory.Recorder
 	Fuel           *fuel.Computer
 	SourceName     string
 	StaleAfter     time.Duration
@@ -21,7 +24,8 @@ type Config struct {
 // Event adds server timing to the domain snapshot. Clients use elapsed local
 // monotonic time rather than assuming their wall clock matches the server.
 type Event struct {
-	Fuel *telemetry.Fuel `json:"fuel,omitzero"`
+	Recording *fuelhistory.Status `json:"fuel_recording,omitempty"`
+	Fuel      *telemetry.Fuel     `json:"fuel,omitzero"`
 	telemetry.Snapshot
 	ServerTime   time.Time `json:"server_time"`
 	StaleAfterMS int64     `json:"stale_after_ms"`
@@ -35,6 +39,11 @@ type Server struct {
 }
 
 func New(config Config) (*Server, error) {
+	if config.HistoryDir != "" {
+		if _, err := fuelhistory.List(config.HistoryDir); err != nil {
+			return nil, err
+		}
+	}
 	if config.StaleAfter < 0 || config.StreamInterval < 0 {
 		return nil, fmt.Errorf("server timing must not be negative")
 	}
@@ -69,12 +78,19 @@ func (s *Server) snapshot() Event {
 		view := s.config.Fuel.View(now)
 		event.Fuel = &view
 	}
+	if s.config.Recorder != nil {
+		status := s.config.Recorder.Status()
+		event.Recording = &status
+	}
 	return event
 }
 
 // Run owns one source reader and closes the source on exit. Adapter reconnection
 // belongs to the live source; transport subscribers never poll the source.
 func (s *Server) Run(ctx context.Context, source telemetry.Source) (err error) {
+	if s.config.Recorder != nil {
+		defer func() { err = errors.Join(err, s.config.Recorder.Close()) }()
+	}
 	if s.config.Fuel != nil {
 		defer func() { err = errors.Join(err, s.config.Fuel.Close()) }()
 	}

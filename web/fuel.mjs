@@ -22,6 +22,11 @@ export function fuelView(event, elapsedMs, transport) {
   const speedFresh = connected && valid(f.speed_until, event, elapsedMs) && Number.isFinite(f.speed_kmh) && f.speed_kmh >= 0;
   const perDistance = flowFresh && speedFresh && f.speed_kmh >= (f.low_speed_kmh ?? 5);
   const notes = [];
+  if (f.quality) notes.push(`Входы: ${flowFresh ? f.quality : 'UNAVAILABLE'} (не оценка точности)`);
+  const diagnostics = { iat_constant: 'IAT долго не менялся', iat_jump: 'Скачок IAT', iat_out_of_range: 'IAT вне диапазона', iat_cold_mismatch: 'IAT и ОЖ различаются при отмеченном холодном запуске' };
+  for (const reason of f.quality_reasons ?? []) if (diagnostics[reason]) notes.push(diagnostics[reason]);
+  if (event.fuel_recording?.state === 'recording') notes.push('Диагностическая запись включена');
+  if (event.fuel_recording?.state === 'failed' || f.diagnostics_error) notes.push('Ошибка диагностической записи — история неполная');
   if (f.incomplete) notes.push(`Частичное покрытие: ${number(f.covered_km, 2)} км с топливом`);
   if (f.settings?.unverified_iat) notes.push('IAT не проверен');
   if (!flowFresh) notes.push(reasons[f.reason] ?? 'Мгновенный расход недоступен');

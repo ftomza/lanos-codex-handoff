@@ -1,6 +1,11 @@
 # Session handoff / status
 
 ## Current state
+M6.1 is implemented and offline-verified on `feat/fuel-analytics` in this same
+checkout: coherent fuel diagnostics/quality and IAT heuristics, bounded opt-in
+JSONL history, shared streaming analysis/CLI and a saved-history dashboard page.
+State v1, dependencies/Go version, ECU command set/schedule and standby behavior
+are preserved. No physical M6.1/Android/consumption-accuracy claim is made.
 M0–M3 complete. M4 live dashboard and M6 fuel computer are implemented,
 offline-verified and merged into main via PR #3 (87f324e). The owner reports
 a successful first combined LIVE run; no duration, readings or logs supplied.
@@ -44,10 +49,13 @@ stability.
 Owner approved merging fix/ecu-standby into main. The merged tree passed fresh
 offline checks. Follow NEXT_CONNECTION.md for a separately agreed parked ignition
 cycle test; no physical vehicle was accessed for this fix.
-M6.1 requirements are committed in PLAN.md (1471a63), ECU standby merged/pushed
-as 7cc6aa8. The proposed M6.1 design is ready for owner review in
-docs/superpowers/specs/2026-10-28-fuel-analytics-design.md on feat/fuel-analytics
-in the current repository folder. No M6.1 implementation yet.
+M6.1 requirements (1471a63) and ECU standby (7cc6aa8) remain in main.
+The owner approved the design and implementation on feat/fuel-analytics.
+Review that feature branch, then follow the new M6.1 section in
+NEXT_CONNECTION.md for a separately agreed parked test and unattended recording.
+Keep the existing live-experimental state path; add --fuel-record-dir to save
+history. Old state totals cannot reconstruct a historical time series.
+No vehicle connection is authorized or required for the offline implementation.
 
 Owner approved M6; it is now merged into main with the new fuel
 panel, persistent totals/coverage, local reset and reversible calibration.
@@ -101,6 +109,8 @@ terminals. Old recordings are not presented as measured fuel consumption.
 - M3 trip-recorder follow-up — offline-tested, then owner 60s/14m36s recordings analyzed; cleanup/IAT issues remain.
 - M4 — merged/offline checks complete; first LIVE run reported successful by owner; ignition-off fix integrated into main, physical acceptance pending.
 - M6 — merged/simulator acceptance complete; first combined LIVE run reported successful; live accuracy/IAT/calibration and visual/device acceptance pending.
+
+- M6.1 — diagnostic recording, quality, IAT checks, offline CLI/HTTP and history UI implemented on feat/fuel-analytics; physical recording/Android/accuracy pending.
 
 ## Decisions and risks
 - Local-first, read-only diagnostics.
@@ -926,3 +936,72 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
 - Await owner approval of the concrete written design as required by
   brainstorming; then write implementation plan and execute regressions/code
   in this same feature branch and workspace.
+
+
+### 2026-10-28 — M6.1 implementation after owner approval
+
+- Owner approved the design and said «Да, погнали». Implemented inline in the
+  same checkout on feat/fuel-analytics, based on main 7cc6aa8 and design 22573b5.
+  No new worktree, no real adapter/ECU queries, no access to owner scripts or
+  private trip/state files. The old .codex/START_HERE.md is absent in this tree;
+  current AGENTS.md and PROJECT/PLAN/STATUS were consulted.
+- Added optional coherent immutable Computer diagnostics, actual speed-density
+  terms/units, nullable signal ages, input quality and bounded IAT heuristics.
+  Preserved -40°C evidence, model limits and explicit LIVE IAT opt-in. Startup
+  IAT can be investigated during connecting without enabling fuel calculation.
+  Cold comparison requires an owner annotation and does not reopen on reconnect.
+  Existing throttle/trims/O2 replies are exposed with independent TTLs; probe
+  scheduling/allowlist/commands and the fuel state v1/fingerprint are unchanged.
+- Added fuelhistory JSONL v1 with 256-row nonblocking queue, private 0600 parts,
+  new 0700 directories, exclusive sidecar lock, atomic fsynced bounded manifest,
+  64KiB rows and default eight 16MiB parts. Only owned retired parts are removed.
+  Recorder errors stop recording visibly while source/HTTP/M6 remain running.
+  Close returns failures; a still-writable footer preserves the failure cause.
+  Missing referenced parts/corrupt metadata never reset the catalog silently.
+- Shared cancellable streaming analysis serves fuelanalyze and configured-only
+  HTTP catalog/report endpoints. Counters are authoritative only across valid
+  comparable intervals; reset/factor/model/generation/sequence/time boundaries
+  and >3s intervals cannot create fuel/distance. Includes coverage/gaps, known-
+  speed weighted average, idle/moving/off/unknown, bins/mixed ranges, segments,
+  IAT flags, markers and sampled-flow comparison. Bounded issue/segment/chart
+  output; read-only analysis never advances fuel accounting or rewrites state.
+- Separate analytics.html uses saved session/range data and six Canvas series.
+  Gaps remain broken; quality, source, retention and downsampling are explicit.
+  Small-budget regression caught a potential reduction loop at 1–2 points:
+  one point now keeps newest, two keep extrema with conservative breaks.
+  Filtered ranges keep lifecycle without false sequence gaps. Empty saved
+  sessions do not appear as zero consumption. No JS/Go dependencies were added.
+- Regression coverage includes formulas/units, freshness/missing inputs, distinct
+  IAT timestamps, startup -40→20, constant/jump/cold checks, control boundaries,
+  immutable observations, old state/API, rotation/source/locks, runtime write
+  error/queue overflow, corrupt/partial history, cancellation and reset/factor/
+  generation boundaries. Actual child-process abrupt exit preserves its complete
+  prefix and leaves a lock; verified manual test cleanup permits a fresh session.
+  Startup history failure precedes Source.Start; real oversized-row writer
+  failure leaves source updates and HTTP alive and returns error on shutdown.
+- Final automated verification, all exit 0:
+  - go test ./... -count=1
+  - go test -race ./... -count=1
+  - make lint (go vet ./... and gofmt check)
+  - make test-web (26 tests)
+  - make build-dashboard build-obdprobe build-fuelanalyze build
+  - built dashboard/fuelanalyze/obdprobe --help; node --check of new modules
+  - Go AST function-length check: no function exceeds 100 lines; goimports is
+    unavailable, imports were grouped manually and formatted with gofmt.
+- Updated README, FUEL_COMPUTER, NEXT_CONNECTION and the approved spec/plan.
+  Hardware-only work remaining: short parked M6.1 recording, controlled ignition/
+  BLE recovery, IAT validation/cold-start evidence, endurance, Android and actual
+  full-to-full fuel calibration. No exact consumption/ECU-model claim is made.
+
+- Final built-binary smoke passed: 25s speed-density simulator capture at 250ms,
+  two SSE readers, clean SIGINT, private 0600 history, CLI JSON, restart preserving
+  reset_at/totals and two saved sessions, then history-only dashboard with fuel
+  off and no BLE. Isolated nonpersistent WebKit rendered all six charts at
+  1280x800 and 560 CSS pixels with no JS errors or horizontal overflow. The
+  longer moving session was explicitly selected. Artifacts (synthetic only):
+  /private/tmp/lanos-m6-1-review-2nl2_p06 (report.json and screenshots).
+  A temporary Swift smoke-harness compile error was fixed before this successful
+  final run; application code was not implicated. Android itself was not tested.
+- git diff --check passed; no changes to go.mod/go.sum, internal/probe,
+  internal/elm327 or fuel state schema. Owner test.py/test2.py remain untracked
+  and excluded. Delivery stays on feat/fuel-analytics; main is not modified.

@@ -14,12 +14,17 @@ import (
 )
 
 type dashboardOptions struct {
-	fuelMode, fuelState  string
-	fuelReset            bool
-	fuelConfig           fuel.Config
-	source, listen       string
-	interval, staleAfter time.Duration
-	probe                probe.Config
+	recordDir, historyDir string
+	recordInterval        time.Duration
+	recordMaxBytes        int64
+	recordMaxFiles        int
+	recordCold            bool
+	fuelMode, fuelState   string
+	fuelReset             bool
+	fuelConfig            fuel.Config
+	source, listen        string
+	interval, staleAfter  time.Duration
+	probe                 probe.Config
 }
 
 func parseDashboardFlags(args []string, out io.Writer) (dashboardOptions, error) {
@@ -43,6 +48,7 @@ func parseDashboardFlags(args []string, out io.Writer) (dashboardOptions, error)
 	f.IntVar(&c.Retries, "retries", 2, "additional attempts per live reconnect burst (0..5); retry after 10s idle even with 0")
 	c.AdapterModel = probe.KnownAdapterModel
 	registerFuelFlags(f, &o)
+	registerHistoryFlags(f, &o)
 	if err := f.Parse(args); err != nil {
 		return o, err
 	}
@@ -55,6 +61,9 @@ func parseDashboardFlags(args []string, out io.Writer) (dashboardOptions, error)
 		return o, err
 	}
 	if err := validateFuelFlags(&o); err != nil {
+		return o, err
+	}
+	if err := validateHistoryFlags(&o, explicit); err != nil {
 		return o, err
 	}
 	return o, nil

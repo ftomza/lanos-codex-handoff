@@ -93,3 +93,23 @@ dialog input[type="number"] { display: block; width: 100%; margin-top: 8px; padd
  .fuel-panel { margin-bottom: 12px; } .health-panel { padding: 12px 18px; } footer { margin-top: 12px; }
 }
 @media (max-width: 600px) { .fuel-metrics { grid-template-columns: repeat(2,1fr); gap: 14px; } .fuel-heading { align-items: start; flex-wrap: wrap; } .fuel-panel { padding: 16px; } }
+
+/* Saved diagnostic history uses the same local instrument palette. */
+.history-link{color:var(--accent,#a9dd8d);text-decoration:underline;text-underline-offset:4px}
+.history-filters{display:flex;gap:14px;flex-wrap:wrap;align-items:end;padding:20px;margin:20px 0}
+.history-filters label{display:flex;flex-direction:column;gap:6px;font-size:13px;flex:1;min-width:170px}
+.history-filters input,.history-filters select{font:inherit;color:inherit;background:#15211a;border:1px solid #3d5041;border-radius:8px;padding:11px;min-height:44px;max-width:100%;color-scheme:dark}
+.history-summary,.history-table{padding:22px;margin:18px 0}
+.history-summary>p,.history-table>p{color:#b9c8bb;line-height:1.6;overflow-wrap:anywhere}
+.history-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.history-chart{padding:18px;min-width:0}
+.history-chart h2{font-size:16px;margin-bottom:12px}
+.history-chart canvas{width:100%;height:210px;display:block}
+.history-chart p{font-size:12px;color:#b9c8bb;margin:8px 0 0}
+.table-scroll{overflow:auto;margin-top:14px}
+.history-table table{width:100%;border-collapse:collapse;white-space:nowrap;font-variant-numeric:tabular-nums}
+.history-table th,.history-table td{padding:12px 10px;text-align:left;border-bottom:1px solid #304036;font-size:14px}
+.history-table th{color:#b9c8bb}
+.history-table pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}
+.history-table li{margin:8px 0;overflow-wrap:anywhere;line-height:1.5}
+@media(max-width:760px){.history-charts{grid-template-columns:1fr}.history-summary,.history-table{padding:16px}.history-filters{padding:16px}.analytics-page .header h1{font-size:23px}}

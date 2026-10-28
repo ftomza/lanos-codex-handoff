@@ -36,7 +36,7 @@ go test ./...
 go vet ./...
 go build ./...
 make lint
-node --test web/model.test.mjs web/feed.test.mjs
+make test-web
 ```
 
 Open http://127.0.0.1:8080. The command runs without a car or adapter. HTML,
@@ -136,8 +136,8 @@ connection deadline where possible. Vgate sleep/wake behavior remains unverified
 Stop the dashboard when diagnostics are finished; waiting continues read-only
 checks and does not guarantee adapter sleep or prevent battery drain.
 Ctrl+C cancels polling, closes/reaps the helper and reports actual cleanup errors.
-No in-memory command history or automatic telemetry file is created in live mode;
-use the separate recorder for raw evidence, after stopping the dashboard.
+Recording remains opt-in. M6.1 can save fuel diagnostics within the dashboard;
+use the separate obdprobe recorder for raw command evidence, after stopping the dashboard.
 
 ## Fuel computer (M6)
 
@@ -165,9 +165,38 @@ are visible. `--fuel-reset-state` explicitly starts a new trip/factor 1; do not
 leave it in ordinary startup. Read [FUEL_COMPUTER.md](docs/FUEL_COMPUTER.md) for
 models, flags, state/lock recovery, coverage, API and calibration requirements.
 
+## Fuel diagnostics and saved history (M6.1)
+
+Recording is optional and uses the same fuel computer and adapter stream as the
+instruments. It adds input quality, IAT warnings and speed-density intermediates;
+these checks do not establish fuel accuracy. Existing M6 state remains compatible.
+
+```sh
+make build-dashboard build-fuelanalyze
+./bin/dashboard --source=sim --fuel-model=speed_density \
+  --fuel-record-dir=data/fuel-history/sim
+# After Ctrl+C: analyze the saved rows without opening Bluetooth.
+./bin/fuelanalyze --input=data/fuel-history/sim --json
+./bin/dashboard --source=sim --fuel=off --fuel-history-dir=data/fuel-history/sim
+```
+
+Open http://127.0.0.1:8080/analytics.html, or use the dashboard's history link.
+Select a saved session/time range for charts, modes, distributions, segment
+averages and JSON export. History never substitutes current live readings.
+Use separate SIM/LIVE directories. Default retention is eight 16 MiB parts;
+old managed parts rotate out with an explicit truncation flag. New files are
+0600, new directories 0700. Recording uses a bounded queue and stops visibly on
+failure while instruments continue. See [FUEL_COMPUTER.md](docs/FUEL_COMPUTER.md)
+for limits, schema, crash recovery and all flags; the next agreed vehicle session
+is described in [NEXT_CONNECTION.md](docs/NEXT_CONNECTION.md). This feature has
+only been tested with synthetic data; Android and physical M6.1 remain untested.
+
 ## HTTP contract
 
 - `GET /`: dashboard and locally served static assets.
+- `GET /analytics.html`: saved fuel history screen (requires a history directory).
+- `GET /api/fuel/history/sessions`: saved session catalog.
+- `GET /api/fuel/history/report`: bounded JSON analysis; optional `session`, `from`, `to`, `points`.
 - `GET /api/snapshot`: current snapshot, with freshness recalculated on request.
 - `GET /events`: SSE `telemetry` events, latest snapshot immediately on every
   connection, then every 250ms. There is no historical replay or event backlog.
@@ -306,7 +335,9 @@ remain unresolved; longer endurance/reconnect are untested. These recorder sessi
 - `internal/telemetry`: source contract and domain snapshots/freshness.
 - `internal/sim`: deterministic simulator implementing the source contract.
 - `internal/live`: native read-only stream adapter, independent freshness and bounded state.
-- `internal/fuel`: estimates, monotonic trip/coverage, local state and calibration.
+- `internal/fuel`: estimates, monotonic trip/coverage, local state, calibration and coherent diagnostics.
+- `internal/fuelhistory`: bounded recording and shared streaming offline analysis.
+- `cmd/fuelanalyze`: saved-history CLI; no vehicle/state access.
 - `internal/server`: HTTP transport and telemetry distribution.
 - `web`: embedded HTML, CSS, JavaScript; no third-party assets.
 - `internal/elm327`: read-only allowlist, framing, recovery, parsers and decoders.

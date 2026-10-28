@@ -1,6 +1,7 @@
 package live
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -15,7 +16,16 @@ type signalDef struct {
 	ttl                         time.Duration
 }
 
-var definitions = []signalDef{
+var definitions = append([]signalDef{
+	{"stft_b2_percent", "0108", "%", "ecu_mode01", 15 * time.Second},
+	{"ltft_b2_percent", "0109", "%", "ecu_mode01", 65 * time.Second},
+	{"throttle_percent", "0111", "%", "ecu_mode01", 10 * time.Second},
+	{"stft_b1_percent", "0106", "%", "ecu_mode01", 15 * time.Second},
+	{"ltft_b1_percent", "0107", "%", "ecu_mode01", 65 * time.Second},
+	{"o2_sensor1_v", "0114", "V", "ecu_mode01", 25 * time.Second},
+	{"o2_sensor2_v", "0115", "V", "ecu_mode01", 25 * time.Second},
+	{"o2_sensor1_stft_percent", "0114", "%", "ecu_mode01", 25 * time.Second},
+	{"o2_sensor2_stft_percent", "0115", "%", "ecu_mode01", 25 * time.Second},
 	{"map_kpa", "010B", "kPa", "ecu_mode01", 3 * time.Second},
 	{"iat_c", "010F", "degC", "ecu_mode01", 20 * time.Second},
 	{"maf_g_s", "0110", "g/s", "ecu_mode01", 3 * time.Second},
@@ -24,6 +34,15 @@ var definitions = []signalDef{
 	{"speed_kmh", "010D", "km/h", "ecu_mode01", 3 * time.Second},
 	{"coolant_c", "0105", "degC", "ecu_mode01", 35 * time.Second},
 	{"voltage_v", "ATRV", "V", "adapter_atrv", 130 * time.Second},
+}, additionalO2Definitions()...)
+
+func additionalO2Definitions() []signalDef {
+	defs := make([]signalDef, 0, 12)
+	for sensor := 3; sensor <= 8; sensor++ {
+		command := fmt.Sprintf("01%02X", 0x13+sensor)
+		defs = append(defs, signalDef{fmt.Sprintf("o2_sensor%d_v", sensor), command, "V", "ecu_mode01", 25 * time.Second}, signalDef{fmt.Sprintf("o2_sensor%d_stft_percent", sensor), command, "%", "ecu_mode01", 25 * time.Second})
+	}
+	return defs
 }
 
 func initialSignals() map[string]telemetry.Signal {
@@ -118,6 +137,15 @@ func (s *Source) command(data probe.RecordingCommand) {
 			if data.Result.Status == "available" && data.Result.Value != nil {
 				signal.Value = new(*data.Result.Value)
 				signal.Support = "supported"
+				if strings.HasPrefix(def.name, "o2_") && strings.HasSuffix(def.name, "stft_percent") {
+					value, ok := data.Result.Extra["short_fuel_trim_percent"]
+					signal.Value = nil
+					signal.Status = "temporarily_unavailable"
+					if ok {
+						signal.Value = new(value)
+						signal.Status = "available"
+					}
+				}
 			}
 		}
 		s.latest.Signals[def.name] = signal

@@ -230,3 +230,13 @@ Android remain pending. See FUEL_COMPUTER.md and NEXT_CONNECTION.md.
 7. Обновлены `docs/STATUS.md` и документация Fuel Computer.
 
 Не изменяй диагностические команды ЭБУ и не добавляй операции записи. Все новые функции реализуй поверх уже доступной телеметрии.
+
+
+M6.1 implementation completed offline on 2026-10-28 in feat/fuel-analytics:
+coherent diagnostics/intermediates/quality and IAT checks, opt-in bounded JSONL
+recording, streaming CLI/HTTP analysis and separate saved-history dashboard.
+Existing state v1, M6 formulas and ECU polling/commands are preserved. Full Go,
+race, lint, web and native build checks passed. Simulator record/restart/replay
+acceptance and exact commands are in STATUS.md; the next actual parked recording
+is documented in NEXT_CONNECTION.md. Physical M6.1/Android and fuel accuracy
+remain pending; prior owner totals are not a recoverable historical time series.
