@@ -35,6 +35,15 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
+Owner requested M6 fuel computer plus dashboard integration after M4. Created
+feat/fuel-computer from c5c674e. Concrete proposed spec:
+docs/superpowers/specs/2026-10-28-fuel-computer-design.md.
+Design review is pending before implementation under the brainstorming skill.
+Recommended scope: simulator acceptance, three strategies, persistent resettable
+trip/coverage, reversible calibration, and explicit experimental live IAT opt-in.
+No fuel implementation or new hardware query yet; previous M4 parked acceptance
+below remains separate and pending.
+
 Run the new M4 dashboard in a separately confirmed parked vehicle session:
 `make build-dashboard`, then
 `./bin/dashboard --source=elm327 --transport=ble --ble-name=IOS-Vlink --retries=0`.
@@ -689,3 +698,26 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   .codex/START_HERE.md remains absent. User test.py/test2.py and private logs
   remain untouched/excluded. No ECU writes/clears, physical compatibility or
   calibrated fuel estimate claimed. Next: separate parked LIVE acceptance.
+
+### 2026-10-28 — M6 fuel computer scope and proposed design
+
+- Owner requested the fuel computer and its dashboard display in a fuel branch.
+  Created feat/fuel-computer from c5c674e so the new work includes M4 LIVE source.
+- Read AGENTS/PROJECT/PLAN/current STATUS, shared source/schedule/domain,
+  simulator/server/UI and capability/recording evidence. MAF/direct fuel PID
+  absent on observed Lanos; IAT remains unverified. No fresh hardware access.
+- Proposed three strategies (direct ECU, MAF, speed-density), nominal gasoline
+  assumptions, explicit live unverified-IAT opt-in, monotonic bounded accounting,
+  matched-interval average, persistent source-specific totals, revisioned local
+  reset and reversible full-to-full calibration, API/UI and offline acceptance.
+- Compared integrated experimental/live support, simulator-only and waiting
+  for direct ECU flow. Recommended integrated module with honest unavailable/
+  experimental labels; do not substitute IAT, infer DFCO or calibrate from
+  odometer endpoints without independent liters.
+- Wrote and self-reviewed docs/superpowers/specs/2026-10-28-fuel-computer-design.md.
+  Review covers units, coverage denominator, live/sim state separation, restarts,
+  persistence errors, local mutations and unsupported command gating.
+- Awaiting one owner spec approval as explicitly required by brainstorming.
+  No implementation or dependency change. Documentation-only verification:
+  git diff --check; Go tests not rerun. User test.py/test2.py and private logs
+  remain untouched. M6 remains unimplemented; M4 physical acceptance pending.
