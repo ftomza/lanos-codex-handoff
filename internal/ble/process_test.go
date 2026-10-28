@@ -53,6 +53,10 @@ func TestBLEChild(t *testing.T) {
 			os.Exit(2)
 		}
 		if m.Type == "close" {
+			if scenario == "fail-close" {
+				fmt.Fprintln(os.Stderr, "synthetic disconnect cleanup failure")
+				os.Exit(7)
+			}
 			if scenario == "stall-close" {
 				time.Sleep(20 * time.Second)
 			}
@@ -266,5 +270,53 @@ func TestUnresponsiveCloseIsBoundedAndReaped(t *testing.T) {
 	}
 	if time.Since(started) > 4*time.Second || d.cmd.ProcessState == nil {
 		t.Fatal("child cleanup exceeded bound or did not reap")
+	}
+}
+
+func TestCanceledOperationThenHelperClose(t *testing.T) {
+	t.Parallel()
+	for _, operation := range []string{"read", "write"} {
+		t.Run(operation, func(t *testing.T) {
+			t.Parallel()
+			d := testDevice(t, "no-ack")
+			ctx, cancel := context.WithCancel(t.Context())
+			result := make(chan error, 1)
+			go func() {
+				if operation == "read" {
+					_, err := d.Read(ctx, make([]byte, 16))
+					result <- err
+					return
+				}
+				_, err := d.Write(ctx, []byte("ATI\r"))
+				result <- err
+			}()
+			cancel()
+			select {
+			case err := <-result:
+				if !errors.Is(err, context.Canceled) {
+					t.Fatalf("cancellation: %v", err)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("operation ignored cancellation")
+			}
+			if err := d.Close(); err != nil {
+				t.Fatalf("clean cancellation became cleanup failure: %v", err)
+			}
+			if d.cmd.ProcessState == nil || !d.cmd.ProcessState.Success() {
+				t.Fatal("helper not reaped successfully")
+			}
+		})
+	}
+}
+
+func TestHelperCloseFailureRetainsDiagnostics(t *testing.T) {
+	t.Parallel()
+	d := testDevice(t, "fail-close")
+	err := d.Close()
+	if err == nil || !strings.Contains(err.Error(), "synthetic disconnect cleanup failure") || !strings.Contains(err.Error(), "exit status 7") {
+		t.Fatalf("lost helper exit evidence: %v", err)
+	}
+	if next := d.Close(); next != err {
+		t.Fatalf("Close lost original result: %v", next)
 	}
 }

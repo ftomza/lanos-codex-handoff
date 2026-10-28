@@ -1,8 +1,11 @@
 # Session handoff / status
 
 ## Current state
-M0–M3 complete. The dashboard remains simulator-only. The new Go read-only
-obdprobe provides macOS native BLE and serial, shared ELM framing/recovery,
+M0–M3 complete. M4 live dashboard is implemented and offline-verified in
+feat/live-dashboard; physical dashboard acceptance is still pending. M6 fuel
+computer is unimplemented. Default dashboard source remains sim; explicit
+--source=elm327 selects native BLE or serial without simulated fallback.
+The Go read-only obdprobe provides macOS native BLE and serial, shared ELM framing/recovery,
 capability discovery, PID/DTC decoding, bounded reconnect and private JSON export.
 Native Go BLE passed a physical baseline on 2026-10-24 with this MacBook/Vgate/
 Lanos: RPM 889.25, coolant 52°C, speed 0, ATRV 11.0V, MIL off and no stored DTCs
@@ -32,36 +35,30 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
-Owner requested live vehicle data in the existing dashboard, in a new feature
-branch. The plan calls this M4 (M6 is the fuel computer). Created
-feat/live-dashboard and prepared docs/superpowers/specs/2026-10-28-live-dashboard-design.md.
-Design review is pending; no live Source or dashboard behavior has changed yet.
-The proposed scope is the existing four instruments, native BLE/serial reuse,
-per-signal freshness, honest source labels and bounded reconnect. No new car
-session is authorized by this implementation request.
+Run the new M4 dashboard in a separately confirmed parked vehicle session:
+`make build-dashboard`, then
+`./bin/dashboard --source=elm327 --transport=ble --ble-name=IOS-Vlink --retries=0`.
+Open http://127.0.0.1:8080. Do not run a recorder/other OBD client concurrently.
+The owner approved the design and implementation; no new hardware connection
+was made in this implementation session. Follow NEXT_CONNECTION.md for current
+engine/ignition confirmation, 60s baseline, two browsers, timing/freshness,
+controlled disconnect/recovery and Ctrl+C evidence. Change ignition only in an
+explicitly agreed scenario. Physical M4, Android and endurance remain pending.
 
-The two owner recordings have been analyzed; see capabilities.md and private
-diagnostics/trip-analysis-20261028-001.json. Next validate the IAT channel and
-investigate failed cleanup after Ctrl+C, retaining the actual terminal error if
-it recurs. Source decoding matches raw; do not replace -40°C with an assumed
-temperature. OBD distance is 9.49054 km versus owner odometer 167→177 km; do not
-apply a correction from rounded endpoints alone. Fuel calibration still needs
-independently measured refueling liters and coverage of the calibration interval.
-No new hardware query or production-code change was made in this analysis.
+The four instruments use independent freshness (RPM/speed 3s, coolant 35s,
+ATRV 130s), plus global 3s silence. Terminal adapter failure leaves HTTP running
+as LIVE/disconnected, requiring process restart for a new adapter retry budget.
+Browser retries only restore SSE/server access. New recorder summaries retain
+actual cleanup errors; offline helper cancellation/forced-close tests passed.
+The exact old engine-off/Ctrl+C failure is still unknown and was not suppressed.
 
-The requested Go utility fix is implemented and physically verified for a BLE
-baseline and a supported-PID scan. Build both binaries with make build-obdprobe; use
-bin/obdprobe --transport=ble --ble-name=IOS-Vlink --retries=0 with a fresh output
-filename. See docs/NEXT_CONNECTION.md for future sessions; reconfirm current
-car/ignition state before hardware access. Preserve recovery/capability rules.
-Dashboard/live Source integration remains the separate M4 task; no live dashboard
-was added. Native Go endurance, ignition-cycle reconnect and stale injection
-still need physical tests. PID 03/13/21/22 returned positive raw payloads, but
-their semantic decoders remain unimplemented. One O2 sample does not establish
-sensor health; MAP/IAT/RPM availability does not validate fuel estimation.
-Native Go confirmed 0120=C0000000 and ATRV=11.0V with engine running.
-Verify the unexpectedly low adapter voltage with a multimeter
-at the battery terminals; it is not a direct generator or ECU voltage measurement.
+The two owner recordings remain analyzed in capabilities.md and the private
+trip-analysis-20261028-001.json. Validate IAT (-40°C then constant +20°C) before
+fuel estimation; do not replace it with an assumed temperature. OBD distance
+9.49054 km versus rounded owner odometer 167→177 km does not justify calibration.
+M6 still needs validated inputs, an estimator and independent measured refueling
+liters. ATRV is adapter supply, not a direct generator measurement; verify its
+accuracy independently at battery terminals. No fuel figures are added here.
 
 ## Completed milestones
 - M0 — module, package boundaries, commands, README and Makefile.
@@ -71,6 +68,7 @@ at the battery terminals; it is not a direct generator or ECU voltage measuremen
 - M3 follow-up — native Go BLE transport, private export, baseline physically passed.
 - M3 discovery follow-up — native Go supported scan physically passed; 18 data PIDs.
 - M3 trip-recorder follow-up — offline-tested, then owner 60s/14m36s recordings analyzed; cleanup/IAT issues remain.
+- M4 — implementation/offline checks complete; live dashboard physical acceptance pending.
 
 ## Decisions and risks
 - Local-first, read-only diagnostics.
@@ -637,3 +635,57 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   No production code/dependency changes, hardware queries or new tests; this is
   a design-only change. git diff --check passed. User test.py/test2.py and all
   private recordings are untouched/excluded. M4/M6 not marked complete.
+
+### 2026-10-28 — M4 live dashboard implementation, offline acceptance
+
+- Owner approved the design; implemented inline on feat/live-dashboard using
+  docs/superpowers/plans/2026-10-28-live-dashboard.md. M4 is live integration;
+  M6 remains the separate fuel computer. No dependency/Go-version changes.
+- Shared probe Runner.Stream reuses recorder allowlist, initialization,
+  capability gating, schedule and finite total retry budget without a recording
+  time limit/history. Record retains its original duration limit and behavior.
+  RecordingSummary now exports actual terminal/cleanup error when available.
+- Added internal/live Source: one worker, latest immutable snapshot, bounded
+  storage, cancellation/join and real Close error propagation. Discovery/gap/
+  recovery clears values; terminal failure publishes disconnected and keeps
+  HTTP available. Closed-source final lifecycle callbacks are harmless; a
+  failing regression reproduced the former spurious cancellation sink failure.
+- Added signal provenance/support/status, own host response/receipt timestamps,
+  TTL and flat nullable API compatibility. RPM/speed 3s, coolant 35s, ATRV 130s;
+  global silence remains 3s. New PID replies cannot refresh other timestamps.
+  Run-wide commands/errors/gaps/recovery-event counters retain no history.
+- Explicit elm327/BLE/serial flags and make build-dashboard; sim remains default.
+  Help/invalid config/bind failure cannot open hardware. HTTP binds first.
+  One hardware stream serves all SSE clients; no browser-triggered BLE retries.
+- Preserved UI layout; dynamic UNKNOWN/SIMULATOR/LIVE notice and notes, honest
+  adapter-supply wording, per-field browser expiry and unavailable statuses.
+  Only fresh numbers drive arcs/bars/warnings. Live failure never displays the
+  simulator's six-second outage explanation. Timestamps identify host timing.
+- Tests written first failed for new Stream/domain/source/CLI/browser APIs.
+  New browser tests exposed old flat values overriding stale signal metadata;
+  fixed using independently validated values. An asynchronous terminal-source
+  test initially consumed a gap before final status; synchronized worker
+  completion to check the actual terminal contract without a timing race.
+- Offline integration replays saved Issue #1 response bytes through the real
+  Stream/Source/HTTP/SSE stack, fragmenting notifications. Two clients share one
+  open; unsupported/write/VIN commands absent, zero RPM stays measured zero,
+  terminal errors keep HTTP alive and close the transport exactly once.
+  Synthetic ATRV/continuation inputs are identified as test data only.
+- Actual fake helper processes cover canceled reads/writes, clean close/reap,
+  forced bounded termination and retained nonzero exit/stderr. No reproduced
+  native-helper production defect; do not infer the old missing cleanup cause.
+- Passed: go test ./... -count=1; go test -race ./...; make lint (go vet/gofmt);
+  make test-web (17 tests); make build-dashboard; make build-obdprobe;
+  GOOS=linux GOARCH=amd64 go build ./...;
+  go vet -tags=nativeble ./cmd/obdprobe-ble; node --check for app/model/feed;
+  dashboard/obdprobe --help; obdprobe --list-ports --json; git diff --check.
+  Go cache restrictions required approved execution outside sandbox. goimports
+  unavailable; gofmt applied and import grouping reviewed manually.
+- Built simulator smoke: GET /, SSE with simulator/connected, SIGINT while SSE
+  open, exit 0. No physical BLE/serial device opened. New browser visual/device
+  validation was not performed; existing layout/CSS preserved.
+- README, PROJECT/PLAN, approved spec/plan and NEXT_CONNECTION updated with exact
+  commands, polling/freshness/retry limits and pending physical test checklist.
+  .codex/START_HERE.md remains absent. User test.py/test2.py and private logs
+  remain untouched/excluded. No ECU writes/clears, physical compatibility or
+  calibrated fuel estimate claimed. Next: separate parked LIVE acceptance.

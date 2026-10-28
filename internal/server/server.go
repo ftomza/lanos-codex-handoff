@@ -66,7 +66,7 @@ func (s *Server) snapshot() Event {
 }
 
 // Run owns one source reader and closes the source on exit. Adapter reconnection
-// belongs to future live sources; transport subscribers never poll the source.
+// belongs to the live source; transport subscribers never poll the source.
 func (s *Server) Run(ctx context.Context, source telemetry.Source) (err error) {
 	if err := source.Start(ctx); err != nil {
 		return fmt.Errorf("start telemetry source: %w", err)

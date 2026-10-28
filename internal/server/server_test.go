@@ -32,7 +32,7 @@ func TestSnapshotFreshnessAndAssets(t *testing.T) {
 		path, content string
 		status        int
 	}{
-		{"/", "SIMULATOR", http.StatusOK},
+		{"/", "UNKNOWN", http.StatusOK},
 		{"/app.mjs", "EventSource", http.StatusOK},
 		{"/style.css", "@media", http.StatusOK},
 		{"/missing", "404", http.StatusNotFound},

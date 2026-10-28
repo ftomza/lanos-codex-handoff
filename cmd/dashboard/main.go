@@ -1,4 +1,4 @@
-// Command dashboard runs the local simulator dashboard without hardware access.
+// Command dashboard serves simulator or explicitly selected read-only live telemetry.
 package main
 
 import (
@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/server"
-	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/sim"
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/telemetry"
 )
 
@@ -30,38 +29,39 @@ func main() {
 }
 
 func run(ctx context.Context, args []string, output io.Writer) error {
-	flags := flag.NewFlagSet("dashboard", flag.ContinueOnError)
-	flags.SetOutput(output)
-	sourceName := flags.String("source", "sim", "telemetry source (sim only; no hardware access)")
-	listen := flags.String("listen", "127.0.0.1:8080", "HTTP address; use 0.0.0.0:8080 for trusted LAN access")
-	interval := flags.Duration("interval", 250*time.Millisecond, "simulator sample interval (at least 50ms)")
-	staleAfter := flags.Duration("stale-after", 3*time.Second, "measurement expiry (must exceed sample interval)")
-	if err := flags.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return nil
-		}
-		return err
+	return runWith(ctx, args, output, dashboardDependencies{})
+}
+
+func runWith(ctx context.Context, args []string, output io.Writer, deps dashboardDependencies) error {
+	o, err := parseDashboardFlags(args, output)
+	if errors.Is(err, flag.ErrHelp) {
+		return nil
 	}
-	if *sourceName != "sim" {
-		return fmt.Errorf("unsupported source %q: M0-M2 support sim only", *sourceName)
-	}
-	if flags.NArg() != 0 || *interval < 50*time.Millisecond || *staleAfter <= *interval {
-		return fmt.Errorf("invalid configuration: no positional arguments; interval >= 50ms and stale-after > interval required")
-	}
-	source, err := sim.New(*interval)
 	if err != nil {
 		return err
 	}
-	app, err := server.New(server.Config{SourceName: telemetry.Simulator, StaleAfter: *staleAfter})
-	if err != nil {
-		return err
+	if deps.listen == nil {
+		deps.listen = (&net.ListenConfig{}).Listen
 	}
-	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", *listen)
+	listener, err := deps.listen(ctx, "tcp", o.listen)
 	if err != nil {
-		return fmt.Errorf("listen on %s: %w", *listen, err)
+		return fmt.Errorf("listen on %s: %w", o.listen, err)
 	}
-	logger := log.New(output, "dashboard: ", log.LstdFlags)
-	logger.Printf("SIMULATOR at http://%s; no vehicle connected", listener.Addr())
+	source, name, err := createSource(o, deps)
+	if err != nil {
+		return errors.Join(err, listener.Close())
+	}
+	app, err := server.New(server.Config{SourceName: name, StaleAfter: o.staleAfter})
+	if err != nil {
+		return errors.Join(err, source.Close(), listener.Close())
+	}
+	label := "SIMULATOR; no vehicle connected"
+	if name == telemetry.Live {
+		label = "LIVE; read-only " + o.probe.Transport + "; waiting for adapter"
+	}
+	if _, err := fmt.Fprintf(output, "dashboard: %s at http://%s\n", label, listener.Addr()); err != nil {
+		return errors.Join(err, source.Close(), listener.Close())
+	}
 	return serve(ctx, listener, app, source)
 }
 

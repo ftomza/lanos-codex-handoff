@@ -10,6 +10,7 @@ import (
 )
 
 type RecordingSummary struct {
+	Error        string `json:"error,omitzero"`
 	Reason       string `json:"reason"`
 	Commands     int64  `json:"commands"`
 	Samples      int64  `json:"samples"`

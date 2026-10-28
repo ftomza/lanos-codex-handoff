@@ -352,3 +352,51 @@ func TestLongRecordingDoesNotAccumulateAuditOrWarnings(t *testing.T) {
 		t.Fatalf("unbounded trip history: commands=%d retained=%d warnings=%d", s.summary.Commands, len(s.report.Commands), len(s.report.Warnings))
 	}
 }
+
+func TestLiveStreamHasNoRecordingDurationLimit(t *testing.T) {
+	t.Parallel()
+	a := fixtureAdapter(t)
+	r, clock := recordingRunner(t, a, 0)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	ready, readAfter := false, false
+	summary, err := r.Stream(ctx, func(e record.Event) error {
+		if e.Type == "capabilities" {
+			ready = true
+			*clock = clock.Add(25 * time.Hour)
+		}
+		if ready && e.Type == "command" && e.Data.(RecordingCommand).Command == "010C" {
+			readAfter = true
+			cancel()
+		}
+		return nil
+	})
+	if err != nil || !readAfter || summary.Reason != "canceled" || summary.DurationNS < int64(25*time.Hour) || !a.closed {
+		t.Fatalf("stream stopped on recorder duration: %+v %v read=%t", summary, err, readAfter)
+	}
+}
+
+func TestRecordingSummaryRetainsCleanupError(t *testing.T) {
+	t.Parallel()
+	a := fixtureAdapter(t)
+	r, _ := recordingRunner(t, a, 0)
+	cause := errors.New("cleanup evidence")
+	r.open = func(context.Context) (elm327.Transport, error) {
+		return closeErrorTransport{adapter: a, cause: cause}, nil
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	var final RecordingSummary
+	summary, err := r.Stream(ctx, func(e record.Event) error {
+		if e.Type == "capabilities" {
+			cancel()
+		}
+		if e.Type == "recording_end" {
+			final = e.Data.(RecordingSummary)
+		}
+		return nil
+	})
+	if !errors.Is(err, cause) || !strings.Contains(summary.Error, "cleanup evidence") || final.Error != summary.Error || final.Reason != "failed" {
+		t.Fatalf("cleanup evidence missing: %+v %+v %v", summary, final, err)
+	}
+}

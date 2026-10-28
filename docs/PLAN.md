@@ -30,7 +30,7 @@ Acceptance: unit tests using fixture responses, including malformed/timeouts; us
 M3 follow-up completed 2026-10-24: native Go BLE via tinygo.org/x/bluetooth
 v0.16.0, Go 1.27, isolated macOS helper, shared ELM/probe, both transports and
 private reports. One physical Go BLE baseline passed all 12 commands on the
-parked running car; details/limits in STATUS.md. Dashboard remains simulator-only.
+parked running car; details/limits in STATUS.md. At that stage the dashboard remained simulator-only; M4 implementation is recorded below.
 
 M3 trip-recorder follow-up implemented 2026-10-24: explicit --record mode,
 private streaming JSONL, supported-input polling and bounded recovery for future
@@ -46,6 +46,16 @@ and capabilities.md. This does not complete M4 or M6.
 - Exponential backoff reconnect, stale-data transitions, error metrics; never fabricate values.
 - Do not assume ISO 9141/14230 support means generic PID availability. Distinguish transport failure from ECU protocol failure.
 Acceptance: live Source tests pass; measure polling rate, latency and stale transitions. Existing utility transport tests and one Go BLE baseline do not verify live Source integration, Android, long-duration stability or engine-restart recovery; test those explicitly.
+
+M4 implementation completed offline on 2026-10-28 in feat/live-dashboard:
+shared continuous Stream/native Source, explicit BLE/serial CLI, four existing
+instruments with independent signal freshness and source-aware UI, bounded
+recovery/error counters and HTTP retained after adapter exhaustion. Go, race,
+HTTP/SSE, browser-logic and build checks passed. **Physical acceptance remains
+pending**: actual polling/latency, forced disconnect/stale/reconnect, longer
+endurance and Android tests are not inferred from existing recorder sessions.
+Build/launch and the next parked test are documented in NEXT_CONNECTION.md.
+M6 fuel estimation remains separate and unimplemented.
 
 ## M5 — Android path
 - First validate browser-based UI on Teclast P85 over LAN; assess fullscreen/kiosk, sleep/wake, brightness, thermal/power behavior.

@@ -33,13 +33,25 @@ func (r *Runner) Record(parent context.Context, duration time.Duration, sink fun
 	if duration <= 0 || duration > 24*time.Hour || sink == nil {
 		return RecordingSummary{}, fmt.Errorf("recording requires duration in (0,24h] and an event sink")
 	}
+	ctx, cancel := context.WithTimeout(parent, duration)
+	defer cancel()
+	return r.runStream(ctx, parent, duration, sink)
+}
+
+// Stream shares the recorder's polling/recovery without a recording time limit.
+func (r *Runner) Stream(ctx context.Context, sink func(record.Event) error) (RecordingSummary, error) {
+	if sink == nil {
+		return RecordingSummary{}, fmt.Errorf("live stream requires an event sink")
+	}
+	return r.runStream(ctx, ctx, 0, sink)
+}
+
+func (r *Runner) runStream(ctx, parent context.Context, duration time.Duration, sink func(record.Event) error) (RecordingSummary, error) {
 	runner := *r
 	runner.config.ScanSupported = true
 	runner.origin = runner.now()
 	s := &recording{r: &runner, started: runner.origin, duration: duration, sink: sink}
 	runner.observer = s.observe
-	ctx, cancel := context.WithTimeout(parent, duration)
-	defer cancel()
 	err := s.emit("recording_start", recordingMetadata(runner.config, duration))
 	if err == nil {
 		err = s.run(ctx)
@@ -51,7 +63,7 @@ func (s *recording) check(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if s.r.now().Sub(s.started) >= s.duration {
+	if s.duration > 0 && s.r.now().Sub(s.started) >= s.duration {
 		return errRecordingDuration
 	}
 	return nil
@@ -176,7 +188,10 @@ func (s *recording) poll(ctx context.Context) error {
 			}
 			schedule.complete(command, s.r.now())
 		}
-		delay := min(max(0, roundStart.Add(time.Second).Sub(s.r.now())), max(0, s.duration-s.r.now().Sub(s.started)))
+		delay := max(0, roundStart.Add(time.Second).Sub(s.r.now()))
+		if s.duration > 0 {
+			delay = min(delay, max(0, s.duration-s.r.now().Sub(s.started)))
+		}
 		if err := s.r.wait(ctx, delay); err != nil {
 			return err
 		}
@@ -231,6 +246,9 @@ func (s *recording) finish(ctx, parent context.Context, err error) (RecordingSum
 	}
 	if s.summary.Segments > 0 {
 		err = errors.Join(err, s.endSegment(s.summary.Reason))
+	}
+	if err != nil {
+		s.summary.Error = err.Error()
 	}
 	s.summary.DurationNS = s.r.now().Sub(s.started).Nanoseconds()
 	s.summary.UnobservedNS = max(0, s.summary.DurationNS-s.summary.PollingNS)

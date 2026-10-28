@@ -24,3 +24,14 @@ Deliver a local-first read-only vehicle dashboard: speed, RPM, coolant temperatu
 - `go run ./cmd/obdprobe --list-ports` and read-only probe mode give actionable diagnostics.
 - Read-only ELM commands are logged with timestamp and raw response; no unsupported PID interpreted as zero.
 - UI indicates data source, connectivity, timestamps, stale/disconnected status.
+
+## Live dashboard implementation (2026-10-28)
+
+M4 now reuses the native probe Stream through internal/live and the existing
+HTTP/SSE interface. Explicit `--source=elm327` feeds speed/RPM/coolant/adapter
+supply; sim remains the default. Run `make build-dashboard`, then
+`./bin/dashboard --source=elm327 --transport=ble --ble-name=IOS-Vlink`.
+One adapter stream serves all browsers, with capability gating, independent
+signal TTLs, bounded retries and no simulated fallback. No dependency changes.
+Offline tests passed; new physical dashboard acceptance and Android remain
+pending. This does not implement the M6 fuel computer. See NEXT_CONNECTION.md.

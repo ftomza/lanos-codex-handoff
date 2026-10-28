@@ -1,6 +1,7 @@
 # Native live telemetry for the dashboard
 
-Status: proposed; awaiting owner review before implementation.
+Status: owner approved on 2026-10-28; implementation and offline verification complete.
+Physical dashboard acceptance remains pending.
 
 ## Requested outcome and milestone
 
@@ -33,7 +34,7 @@ integration, Android or live-dashboard recovery.
 
 ## CLI and build
 
-Proposed commands, available only after implementation:
+Implemented build/launch commands (hardware launch requires current vehicle-state confirmation):
 
 ```sh
 make build-dashboard
@@ -65,6 +66,10 @@ Add internal/live implementing telemetry.Source. It adapts typed events from a
 common probe polling API, not JSON files or another CLI process. Extract only
 the shared streaming lifecycle needed from the recorder. Preserve finite probe
 reports and --record format/duration/retry behavior with regression tests.
+
+Optional API diagnostics count commands, command errors, gaps and recovery
+events for the whole run; counters survive segment resets without retaining
+command history.
 
 The live stream runs until context cancellation or terminal retry failure,
 without the recorder's four-hour default or 24-hour recording limit. It keeps
