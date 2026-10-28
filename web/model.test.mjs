@@ -123,3 +123,21 @@ test('availability notes distinguish unsupported, untested and temporary failure
     assert.match(presentation(sample, viewState(sample, 0, 'open'), { status: 'open' }).coolantNote, expected);
   }
 });
+
+test('ignition standby stays LIVE, hides readings and displays the source explanation', async () => {
+  const { presentation } = await import('./model.mjs');
+  for (const message of [
+    'Адаптер подключён. ЭБУ не отвечает — возможно, зажигание выключено. Ожидаем…',
+    'Нет связи с адаптером. Ожидаем подключения…',
+  ]) {
+    const waiting = { ...event, source: 'live', health: 'connecting', message };
+    const state = viewState(waiting, 60000, 'open');
+    const text = presentation(waiting, state, { status: 'open', attempt: 0 });
+    assert.equal(state.rpm, '—');
+    assert.equal(state.speed, '—');
+    assert.equal(state.fresh, false);
+    assert.equal(text.noticeTag, 'LIVE');
+    assert.equal(text.detail, message);
+    assert.doesNotMatch(text.detail, /Перезапустите|Симулятор/);
+  }
+});

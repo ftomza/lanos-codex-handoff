@@ -1,10 +1,13 @@
 # Session handoff / status
 
 ## Current state
-M0–M3 complete. M4 live dashboard is implemented and offline-verified in
-feat/live-dashboard; physical dashboard acceptance is still pending. M6 fuel
-computer is now implemented/offline-tested in feat/fuel-computer; physical
-fuel accuracy and new visual/device acceptance remain pending.
+M0–M3 complete. M4 live dashboard and M6 fuel computer are implemented,
+offline-verified and merged into main via PR #3 (87f324e). The owner reports
+a successful first combined LIVE run; no duration, readings or logs supplied.
+The ignition-off waiting fix from fix/ecu-standby is integrated into main:
+continuous LIVE waits and resumes after ECU/adapter availability returns.
+Measured polling/latency, physical ignition recovery/endurance, fuel accuracy,
+IAT validation and Android/device acceptance remain pending.
 Default dashboard source remains sim; explicit
 --source=elm327 selects native BLE or serial without simulated fallback.
 The Go read-only obdprobe provides macOS native BLE and serial, shared ELM framing/recovery,
@@ -38,7 +41,13 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
-Owner approved M6; it is now implemented on feat/fuel-computer with the new fuel
+Owner approved merging fix/ecu-standby into main. The merged tree passed fresh
+offline checks. Follow NEXT_CONNECTION.md for a separately agreed parked ignition
+cycle test; no physical vehicle was accessed for this fix.
+M6.1 requirements are committed in PLAN.md (1471a63). Continue design/work in
+feat/fuel-analytics in the current repository folder, based on the combined main.
+
+Owner approved M6; it is now merged into main with the new fuel
 panel, persistent totals/coverage, local reset and reversible calibration.
 Build with make build-dashboard; simulator starts with --source=sim. See
 FUEL_COMPUTER.md for exact model assumptions, defaults and storage behavior.
@@ -47,7 +56,8 @@ For an agreed parked experimental LIVE run use --fuel-allow-unverified-iat and
 accuracy; default running-engine LIVE speed-density stays unavailable without
 that opt-in. No actual vehicle access was performed during implementation.
 
-Run the new M4 dashboard in a separately confirmed parked vehicle session:
+The owner completed a first combined LIVE run after merging PR #3. For a
+separately confirmed follow-up parked vehicle session, the M4 command is:
 `make build-dashboard`, then
 `./bin/dashboard --source=elm327 --transport=ble --ble-name=IOS-Vlink --retries=0`.
 Open http://127.0.0.1:8080. Do not run a recorder/other OBD client concurrently.
@@ -55,12 +65,18 @@ The owner approved the design and implementation; no new hardware connection
 was made in this implementation session. Follow NEXT_CONNECTION.md for current
 engine/ignition confirmation, 60s baseline, two browsers, timing/freshness,
 controlled disconnect/recovery and Ctrl+C evidence. Change ignition only in an
-explicitly agreed scenario. Physical M4, Android and endurance remain pending.
+explicitly agreed scenario. Detailed physical M4 recovery/timing acceptance,
+Android and endurance remain pending.
 
 The four instruments use independent freshness (RPM/speed 3s, coolant 35s,
-ATRV 130s), plus global 3s silence. Terminal adapter failure leaves HTTP running
-as LIVE/disconnected, requiring process restart for a new adapter retry budget.
-Browser retries only restore SSE/server access. New recorder summaries retain
+ATRV 130s), plus global 3s ECU silence. LIVE now uses bounded reconnect bursts
+and 10s idle pauses until canceled; retries=0 still waits for ECU/adapter return.
+ECU standby uses sparse ATI/0100 checks and distinguishes missing adapter from
+possibly-off ignition. No new command may precede pending-prompt recovery.
+Configuration/permission/unknown initialization and real cleanup errors remain
+terminal with HTTP running as LIVE/disconnected. Browser retries only restore
+SSE/server access. Finite probe/record retry budgets are unchanged.
+New recorder summaries retain
 actual cleanup errors; offline helper cancellation/forced-close tests passed.
 The exact old engine-off/Ctrl+C failure is still unknown and was not suppressed.
 
@@ -81,8 +97,8 @@ terminals. Old recordings are not presented as measured fuel consumption.
 - M3 follow-up — native Go BLE transport, private export, baseline physically passed.
 - M3 discovery follow-up — native Go supported scan physically passed; 18 data PIDs.
 - M3 trip-recorder follow-up — offline-tested, then owner 60s/14m36s recordings analyzed; cleanup/IAT issues remain.
-- M4 — implementation/offline checks complete; live dashboard physical acceptance pending.
-- M6 — implementation/simulator acceptance complete; live accuracy/IAT/calibration and visual/device acceptance pending.
+- M4 — merged/offline checks complete; first LIVE run reported successful by owner; ignition-off fix integrated into main, physical acceptance pending.
+- M6 — merged/simulator acceptance complete; first combined LIVE run reported successful; live accuracy/IAT/calibration and visual/device acceptance pending.
 
 ## Decisions and risks
 - Local-first, read-only diagnostics.
@@ -785,3 +801,102 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   then controlled coverage/reconnect/shutdown tests and independent full-to-full
   calibration only over a valid matching interval. Android and visual checks
   remain pending. Ordinary vehicle operation must not depend on this dashboard.
+
+### 2026-10-28 — First LIVE feedback and proposed ECU standby fix
+
+- Owner reports the merged M4/M6 dashboard worked successfully on the car.
+  This is owner-reported functional evidence, not measured polling/latency,
+  fuel accuracy, IAT validity or endurance/reconnect acceptance. No new raw
+  readings/duration supplied. Fuel gauge second tick is not a measured volume.
+- Owner reports restart advice with adapter powered and ignition off, both
+  at startup and after switching ignition off. Inspected live Source/events,
+  continuous recorder, scan/PID error handling, session recovery and telemetry
+  health. Stream has a terminal total retry budget; capabilities/AT responses
+  can mark connected despite absent ECU, and framed NO DATA does not recover.
+- Created fix/ecu-standby from main 87f324e. Proposed sparse ECU standby and
+  separate adapter recovery, bounded retry bursts, unchanged finite Run/Record,
+  preserved prompt synchronization and fuel gap accounting. Alternatives and
+  acceptance are in the written spec. Await owner approval before code changes
+  as explicitly required by brainstorming. Self-review checked scope, state
+  transitions, retries=0 semantics, safe recovery and hardware claims.
+- Commands: git status --short --branch; targeted source/document inspection;
+  git switch -c fix/ecu-standby (sandbox blocked Git ref creation, approved
+  escalation succeeded). .codex/START_HERE.md remains absent.
+- Documentation only: git diff --check; no Go/Node tests rerun and no vehicle
+  accessed. test.py/test2.py, private recordings and fuel state untouched.
+- Next: owner review, implementation plan and failing regressions, then code,
+  offline checks and separately agreed parked ignition-cycle acceptance.
+
+### 2026-10-28 — Approved ECU standby implementation, offline acceptance
+
+- Owner approved the written design; implemented inline on fix/ecu-standby
+  following docs/superpowers/plans/2026-10-28-ecu-standby.md. No dependencies,
+  Go version, fuel model, state schema, ECU allowlist or ADAS changes.
+- Continuous Stream alone has an availability supervisor: missing first bitmap
+  or three failed core rounds enters ECU standby; one absent PID and measured
+  zero RPM remain valid cases. Sparse ATI/0100 checks avoid repeated full scans
+  while ECU is absent. No-core profiles check 0100 on the idle interval.
+- Transport recovery uses 1+Retries bursts, capped existing backoff and 10s
+  pauses between bursts, including retries=0. Waiting remains cancelable.
+  Timeout retains the session for read-only Recover; reopen retains needSync.
+  No write/reinitialization before consuming a pending prompt. If the prompt
+  never arrives, manual adapter intervention may still be necessary.
+- LIVE Source publishes distinct ECU/adapter/synchronization messages with
+  connecting health. Actual Mode 01 evidence alone updates global freshness;
+  capabilities without ECU evidence and AT replies cannot create connected.
+  Independent TTLs and new generation after recovery prevent old live values
+  or fuel integration across gaps. Historical trip totals/reset/calibration
+  survive; instantaneous fuel disappears and coverage becomes partial.
+- BLE helper distinguishes expected disconnect/target-unavailable with optional
+  typed wire codes after successful cleanup and exits cleanly for those cases.
+  Native scan gets a cooperative deadline before the parent's hard bound.
+  Unknown/config/permission errors, malformed framing, sink and actual cleanup
+  failures remain terminal. Joined errors cannot hide a fatal cause behind a
+  temporary error. Both binaries must be rebuilt together.
+- Initial regressions reproduced terminal retries=0, false capabilities from
+  NO DATA and lack of ignition-off transition; Source regressions reproduced
+  AT activity refreshing ECU health. Tests were added before the fixes.
+  A helper startup-loss test exposed internal context cancellation hiding the
+  real disconnect; retained the callback cause. Joined-error regressions
+  exposed and corrected masking of fatal permission/cleanup failures.
+- HTTP/SSE integration passed startup without ECU -> 10s standby -> live data
+  for two actively consuming browsers, one adapter open, new generation and
+  clean cancellation. A first test left its second socket unread for 10s and
+  correctly hit the server write deadline; fixed the test to consume both.
+  Fuel integration verifies retained totals and no bridge even when a slow
+  consumer skips standby. Finite Run/Record and existing cleanup tests pass.
+- Passed: go test ./... -count=1; go test -race ./...; make lint;
+  make test-web (23 tests); make build-dashboard; make build-obdprobe;
+  go vet -tags=nativeble ./cmd/obdprobe-ble; git diff --check.
+  Initial race run exposed a test reusing a deadline after waiting for a race
+  helper process to exit; fresh context fixed it, full rerun passed. Build-cache
+  sandbox warnings were followed by successful approved builds outside sandbox.
+  goimports is unavailable; gofmt and manual import grouping review applied.
+- Built simulator smoke passed HTTP page/snapshot, computed fuel, two SSE
+  clients, SIGINT exit 0 and private 0600 state in an isolated temporary folder.
+  Owner fuel state and private recordings untouched. Documentation/help now
+  explain new LIVE retry semantics and the next parked ignition-cycle test.
+- No physical BLE/serial connection, ECU request or ignition change performed.
+  Vgate sleep/wake, physical automatic recovery, measured timing, endurance,
+  Android and fuel accuracy remain unverified. test.py/test2.py are excluded.
+  Next: commit/push feature branch, review, then separately agreed parked test.
+
+### 2026-10-28 — M6.1 plan committed; ECU standby integrated into main
+
+- Owner added M6.1 requirements and asked to commit them in main and continue
+  in the existing repository folder. Committed PLAN.md only as 1471a63 and
+  pushed main. Temporary stash transferred the exact 116-line addition safely;
+  it was restored and removed. No additional worktree was created.
+- Owner then approved integrating fix/ecu-standby. Merged 75dc822 into main
+  without conflicts, preserving the complete M6.1 addition and ADAS plan.
+- Fresh merged-tree checks passed: go test ./... -count=1;
+  go test -race ./... -count=1; make lint; make test-web (23 tests);
+  git diff --cached --check. Dashboard/native helper rebuilt with approved
+  Go-cache access. No device was opened and physical ignition recovery remains
+  pending. User scripts/private recordings/fuel state are untouched.
+- M6.1 context contains owner-provided trip totals: 9.569 km, estimated 0.9369 L,
+  9.79 L/100km, 98.4% observed-time coverage, speed_density, factor=1 and
+  incomplete/process_restart/unavailable_input. These are reported estimates,
+  not independently measured liters or a validation of IAT/VE/consumption.
+- Next: advance feat/fuel-analytics to this main in the current folder;
+  prepare the M6.1 recording/analysis/UI design before implementation.

@@ -52,7 +52,7 @@ func OpenNative(ctx context.Context, name string, notify func([]byte), lost func
 	}()
 	adapter.SetConnectHandler(func(d bluetooth.Device, connected bool) {
 		if !connected && d.Address.String() == device.Address.String() && !n.closing.Load() {
-			lost(fmt.Errorf("ble device disconnected"))
+			lost(blewire.ErrDisconnected)
 		}
 	})
 	if err := ctx.Err(); err != nil {
@@ -122,11 +122,15 @@ func scanDevice(ctx context.Context, adapter *bluetooth.Adapter, name string) (b
 		return address, nil
 	case err := <-finished:
 		if err == nil {
-			err = fmt.Errorf("ble scan ended without target device")
+			err = blewire.ErrUnavailable
 		}
 		return bluetooth.Address{}, err
 	case <-ctx.Done():
-		return bluetooth.Address{}, errors.Join(ctx.Err(), adapter.StopScan())
+		stopErr := adapter.StopScan()
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) && stopErr == nil {
+			return bluetooth.Address{}, fmt.Errorf("scan target: %w", blewire.ErrUnavailable)
+		}
+		return bluetooth.Address{}, errors.Join(ctx.Err(), stopErr)
 	}
 }
 

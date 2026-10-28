@@ -35,6 +35,7 @@ type Source struct {
 	cancel                  context.CancelFunc
 	workerErr               error
 	started, closed, active bool
+	ecuSeen                 bool
 }
 
 func New(cfg probe.Config, open func(context.Context) (elm327.Transport, error)) (*Source, error) {

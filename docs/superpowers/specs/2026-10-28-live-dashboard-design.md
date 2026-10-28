@@ -3,6 +3,11 @@
 Status: owner approved on 2026-10-28; implementation and offline verification complete.
 Physical dashboard acceptance remains pending.
 
+Follow-up: owner reports a successful first combined M4/M6 LIVE run. The approved
+[ECU standby design](2026-10-28-ecu-standby-design.md) supersedes the terminal
+total-retry policy below for continuous LIVE only. Physical ignition recovery,
+timing and endurance acceptance remain pending.
+
 ## Requested outcome and milestone
 
 The owner requested real vehicle data in the existing dashboard, in a new branch,

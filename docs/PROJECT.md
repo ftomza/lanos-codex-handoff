@@ -33,8 +33,11 @@ supply; sim remains the default. Run `make build-dashboard`, then
 `./bin/dashboard --source=elm327 --transport=ble --ble-name=IOS-Vlink`.
 One adapter stream serves all browsers, with capability gating, independent
 signal TTLs, bounded retries and no simulated fallback. No dependency changes.
-Offline tests passed; new physical dashboard acceptance and Android remain
-pending. M6 is now implemented separately as documented below. See NEXT_CONNECTION.md.
+Offline tests passed, both milestones are merged; the owner reports a successful
+first combined LIVE run. LIVE now waits for silent ECU/unavailable adapter with
+bounded reconnect bursts and sparse checks; ignition position is not measured.
+Ignition-cycle recovery, detailed physical acceptance and Android remain pending.
+See NEXT_CONNECTION.md.
 
 ## Fuel computer implementation (2026-10-28)
 

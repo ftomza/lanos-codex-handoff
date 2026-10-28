@@ -40,7 +40,7 @@ func parseDashboardFlags(args []string, out io.Writer) (dashboardOptions, error)
 	f.DurationVar(&c.Timeout, "timeout", 3*time.Second, "ELM command timeout")
 	f.DurationVar(&c.InitialTimeout, "initial-timeout", 30*time.Second, "initial ECU protocol search timeout")
 	f.DurationVar(&c.RecoveryTimeout, "recovery-timeout", 30*time.Second, "read-only wait for a delayed prompt")
-	f.IntVar(&c.Retries, "retries", 2, "additional attempts over the entire live run (0..5)")
+	f.IntVar(&c.Retries, "retries", 2, "additional attempts per live reconnect burst (0..5); retry after 10s idle even with 0")
 	c.AdapterModel = probe.KnownAdapterModel
 	registerFuelFlags(f, &o)
 	if err := f.Parse(args); err != nil {

@@ -2,8 +2,9 @@
 
 Local, read-only Chevrolet Lanos dashboard and diagnostic probe. The dashboard
 supports explicit **live BLE/serial telemetry** and a separate default simulator.
-M4 and M6 implementation are offline-tested; physical dashboard and fuel-accuracy
-acceptance are pending. The fuel computer adds local persistent trip estimates,
+M4 and M6 are merged and offline-tested; the owner reports a successful first
+combined LIVE run. Ignition-cycle recovery and fuel accuracy still require
+physical acceptance. The fuel computer adds local persistent trip estimates,
 coverage, reset and reversible calibration.
 Issue #1 records successful owner Vgate/KWP2000 tests over SPP and BLE, including
 nonzero engine RPM over BLE. Our Go probe now also passed a physical native BLE
@@ -78,7 +79,7 @@ timestamps are shown in the browser's local timezone (hover for the UTC timestam
 These are host timestamps, not ECU capture times. These instruments do not
 replace the vehicle's factory instruments.
 
-## Live dashboard (M4, physical acceptance pending)
+## Live dashboard (M4)
 
 ```sh
 make build-dashboard
@@ -90,7 +91,7 @@ together; `--ble-helper` selects another helper path. With `go run`, explicitly
 pass `--ble-helper=bin/obdprobe-ble`. Close other OBD clients/recorders first.
 Start only with the car parked and its current ignition/engine state confirmed;
 follow [NEXT_CONNECTION.md](docs/NEXT_CONNECTION.md) for physical acceptance.
-The new dashboard has not yet been tested against the vehicle.
+The owner reports basic LIVE success; timing, recovery and endurance need separate tests.
 
 Serial remains explicit: `./bin/dashboard --source=elm327 --transport=serial
 --port=/dev/cu.Android-Vlink --baud=38400` (as one command). No implicit fallback.
@@ -111,11 +112,29 @@ The shared recorder schedule targets one RPM/MAP/speed round per second and one
 oldest-due supporting item, without catch-up bursts. Actual rate depends on ECU
 latency; the existing instruments remain. M6 additionally uses supported fuel-model
 inputs; see the fuel computer section below.
-Default `--retries=2` gives two additional attempts **over the entire live run**
-(maximum 5), with bounded exponential backoff. Timeout/reopen requires the pending
-prompt before reinitialization. Terminal failure keeps HTTP available as
-LIVE/disconnected with a restart instruction. The browser reconnect button only
-retries SSE/server access; restart the dashboard process for a new adapter budget.
+When the adapter responds but the ECU does not, LIVE waits and explains that
+ignition may be off; ignition position is not measured. Three failed core rounds
+enter standby; one unavailable PID or measured zero RPM does not. Standby checks
+ATI/0100 after each 10s pause, with command timeouts potentially extending that
+interval. Fresh discovery/new generation is required before resuming values.
+Old values/instantaneous fuel disappear; trip totals remain and gaps are marked.
+
+Default `--retries=2` gives two additional attempts **per reconnect burst**
+(maximum 5), with capped 0.5/1/2/4/4s backoff. After a burst, LIVE waits 10s and
+tries again until stopped. `--retries=0` means one attempt per burst, followed by
+the same idle pause. Finite obdprobe/recording retry budgets are unchanged.
+Timeout/reopen still requires the pending prompt before any new write; if it
+never arrives, recovery can remain waiting for manual adapter intervention.
+Missing adapter and ECU silence have distinct messages. Configuration/permission,
+unsupported initialization, unknown errors and actual helper cleanup failures
+remain terminal, with HTTP available as LIVE/disconnected and the error shown.
+The browser reconnect button only retries SSE/server access.
+Rebuild both dashboard and helper together. Expected BLE disconnect/target-not-found
+events permit recovery only after clean helper shutdown; forced termination or
+cleanup failures remain explicit. Native scan ends before the parent's hard
+connection deadline where possible. Vgate sleep/wake behavior remains unverified.
+Stop the dashboard when diagnostics are finished; waiting continues read-only
+checks and does not guarantee adapter sleep or prevent battery drain.
 Ctrl+C cancels polling, closes/reaps the helper and reports actual cleanup errors.
 No in-memory command history or automatic telemetry file is created in live mode;
 use the separate recorder for raw evidence, after stopping the dashboard.

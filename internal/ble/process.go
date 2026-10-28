@@ -120,6 +120,13 @@ func (d *Device) accept(m blewire.Message) error {
 			return fmt.Errorf("duplicate write acknowledgement")
 		}
 	case "error":
+		d.remoteDone = true
+		switch m.Code {
+		case "disconnected":
+			return fmt.Errorf("native BLE: %w: %s", blewire.ErrDisconnected, m.Error)
+		case "unavailable":
+			return fmt.Errorf("native BLE: %w: %s", blewire.ErrUnavailable, m.Error)
+		}
 		return fmt.Errorf("native BLE: %s", m.Error)
 	default:
 		return fmt.Errorf("unknown event %q", m.Type)
@@ -157,6 +164,7 @@ func (d *Device) Close() error {
 	d.closeOnce.Do(func() {
 		d.mu.Lock()
 		d.closed = true
+		remoteDone := d.remoteDone
 		d.notifyLocked()
 		d.mu.Unlock()
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -164,6 +172,9 @@ func (d *Device) Close() error {
 		select {
 		case <-d.exited:
 		default:
+			if remoteDone {
+				break
+			}
 			select {
 			case d.gate <- struct{}{}:
 				d.closeErr = d.send(ctx, blewire.Message{Type: "close"})

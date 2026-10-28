@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/blewire"
@@ -18,22 +19,23 @@ import (
 type Config struct{ Name, Helper string }
 
 type Device struct {
-	mu        sync.Mutex
-	buffer    []byte
-	err       error
-	ready     bool
-	closed    bool
-	changed   chan struct{}
-	sequence  uint64
-	ack       chan blewire.Message
-	gate      chan struct{}
-	cmd       *exec.Cmd
-	stdin     *os.File
-	exited    chan struct{}
-	waitErr   error
-	stderr    boundedLog
-	closeOnce sync.Once
-	closeErr  error
+	mu         sync.Mutex
+	buffer     []byte
+	err        error
+	ready      bool
+	remoteDone bool
+	closed     bool
+	changed    chan struct{}
+	sequence   uint64
+	ack        chan blewire.Message
+	gate       chan struct{}
+	cmd        *exec.Cmd
+	stdin      *os.File
+	exited     chan struct{}
+	waitErr    error
+	stderr     boundedLog
+	closeOnce  sync.Once
+	closeErr   error
 }
 
 func Open(ctx context.Context, cfg Config) (*Device, error) {
@@ -50,7 +52,14 @@ func Open(ctx context.Context, cfg Config) (*Device, error) {
 		}
 		cfg.Helper = filepath.Join(filepath.Dir(executable), "obdprobe-ble")
 	}
-	d, err := openCommand(ctx, exec.Command(cfg.Helper, "--name", cfg.Name))
+	args := []string{"--name", cfg.Name}
+	if deadline, ok := ctx.Deadline(); ok {
+		// Let a cooperative scan time out and clean up before the parent's
+		// hard bound. A wedged native call is still terminated by the parent.
+		timeout := max(time.Nanosecond, time.Until(deadline)*9/10)
+		args = append(args, "--connect-timeout", timeout.String())
+	}
+	d, err := openCommand(ctx, exec.Command(cfg.Helper, args...))
 	if err != nil {
 		return nil, fmt.Errorf("open native BLE: %w; build both binaries with make build-obdprobe; check macOS Bluetooth permission", err)
 	}
