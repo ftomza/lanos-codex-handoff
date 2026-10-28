@@ -20,7 +20,7 @@ func TestCommandConfiguration(t *testing.T) {
 		wantErr bool
 	}{
 		{"help", []string{"--help"}, false},
-		{"live rejected", []string{"--source=elm327"}, true},
+		{"unknown source rejected", []string{"--source=unknown"}, true},
 		{"negative interval", []string{"--interval=-1s"}, true},
 		{"stale before sample", []string{"--interval=5s", "--stale-after=1s"}, true},
 		{"unexpected argument", []string{"anything"}, true},

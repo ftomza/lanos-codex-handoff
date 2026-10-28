@@ -15,6 +15,8 @@ type options struct {
 	config             probe.Config
 	list, json, redact bool
 	output             string
+	record             bool
+	duration           time.Duration
 }
 
 func parseFlags(args []string, stderr io.Writer) (options, error) {
@@ -33,10 +35,12 @@ func parseFlags(args []string, stderr io.Writer) (options, error) {
 	flags.DurationVar(&cfg.InitialTimeout, "initial-timeout", 30*time.Second, "initial 0100 protocol search timeout")
 	flags.DurationVar(&cfg.RecoveryTimeout, "recovery-timeout", 30*time.Second, "read-only wait for delayed prompt after timeout/disconnect")
 	flags.IntVar(&cfg.Retries, "retries", 2, "additional attempts after transport failures (0..5)")
+	flags.BoolVar(&o.record, "record", false, "record a private capability-gated trip JSONL stream")
+	flags.DurationVar(&o.duration, "duration", 4*time.Hour, "recording duration, >0 and <=24h; requires --record")
 	flags.BoolVar(&cfg.ScanSupported, "scan-supported", false, "discover continuation bitmaps and read advertised Mode 01 PIDs")
 	flags.BoolVar(&o.list, "list-ports", false, "enumerate /dev/cu.* names without opening any port")
 	flags.BoolVar(&o.json, "json", false, "write one machine-readable JSON report to stdout")
-	flags.StringVar(&o.output, "output", "", "create a private JSON report; never overwrite an existing file")
+	flags.StringVar(&o.output, "output", "", "private report JSON or recording JSONL; default recording path: diagnostics/trip-*.jsonl; never overwrite")
 	flags.BoolVar(&o.redact, "redact-vin", true, "redact recognizable unsolicited VIN data; VIN is never requested")
 	if err := flags.Parse(args); err != nil {
 		return o, err
@@ -46,6 +50,12 @@ func parseFlags(args []string, stderr io.Writer) (options, error) {
 	}
 	explicit := make(map[string]bool, flags.NFlag())
 	flags.Visit(func(f *flag.Flag) { explicit[f.Name] = true })
+	if o.record && (o.json || o.list || cfg.ScanSupported || o.duration <= 0 || o.duration > 24*time.Hour) {
+		return o, fmt.Errorf("record requires duration in (0,24h] and cannot combine with json, list-ports or scan-supported")
+	}
+	if explicit["duration"] && !o.record {
+		return o, fmt.Errorf("duration requires --record")
+	}
 	switch cfg.Transport {
 	case "serial":
 		for _, name := range []string{"ble-name", "ble-helper", "ble-connect-timeout"} {

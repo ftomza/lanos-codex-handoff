@@ -12,6 +12,9 @@ import (
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/fuel/reset", s.handleFuel)
+	mux.HandleFunc("POST /api/fuel/calibration/preview", s.handleFuel)
+	mux.HandleFunc("POST /api/fuel/calibration", s.handleFuel)
 	mux.HandleFunc("GET /api/snapshot", s.handleSnapshot)
 	mux.HandleFunc("GET /events", s.handleEvents)
 	mux.Handle("GET /", http.FileServerFS(web.Assets))

@@ -1,10 +1,10 @@
-.PHONY: test test-web vet lint build fmt build-obdprobe
+.PHONY: test test-web vet lint build fmt build-obdprobe build-dashboard
 
 test:
 	go test ./...
 
 test-web:
-	node --test web/model.test.mjs web/feed.test.mjs
+	node --test web/model.test.mjs web/feed.test.mjs web/fuel.test.mjs
 
 vet:
 	go vet ./...
@@ -17,6 +17,10 @@ build:
 
 build-obdprobe:
 	go build -o bin/obdprobe ./cmd/obdprobe
+	go build -tags=nativeble -o bin/obdprobe-ble ./cmd/obdprobe-ble
+
+build-dashboard:
+	go build -o bin/dashboard ./cmd/dashboard
 	go build -tags=nativeble -o bin/obdprobe-ble ./cmd/obdprobe-ble
 
 fmt:

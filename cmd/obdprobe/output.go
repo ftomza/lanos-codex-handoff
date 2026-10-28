@@ -4,59 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"regexp"
-	"strings"
 
+	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/privacy"
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/probe"
 )
 
-var vinPattern = regexp.MustCompile(`\b[A-HJ-NPR-Z0-9]{17}\b`)
-
-func redactVIN(s string) string {
-	for _, line := range strings.FieldsFunc(s, func(r rune) bool { return r == '\r' || r == '\n' }) {
-		compact := strings.ToUpper(strings.Join(strings.Fields(line), ""))
-		if strings.HasPrefix(compact, "4902") {
-			return "[unsolicited Mode 09 VIN response redacted]"
-		}
-	}
-	return vinPattern.ReplaceAllString(s, "[VIN REDACTED]")
-}
-
-// Sanitize string fields recursively so unsolicited VIN text cannot escape via
-// a decoder error or a warning while raw responses themselves are redacted.
-func sanitize(value any) any {
-	switch v := value.(type) {
-	case string:
-		return redactVIN(v)
-	case []any:
-		for i := range v {
-			v[i] = sanitize(v[i])
-		}
-	case map[string]any:
-		for key, item := range v {
-			v[key] = sanitize(item)
-		}
-	}
-	return value
-}
+func redactVIN(s string) string { return privacy.VIN(s) }
 
 func encodeReport(report probe.Report, redact bool) ([]byte, error) {
-	data, err := json.Marshal(report)
-	if err != nil {
-		return nil, err
-	}
-	if !redact {
-		return append(data, '\n'), nil
-	}
-	var value any
-	// UseNumber preserves integer timestamps/values while redacting string fields.
-	decoder := json.NewDecoder(strings.NewReader(string(data)))
-	decoder.UseNumber()
-	if err := decoder.Decode(&value); err != nil {
-		return nil, err
-	}
-	data, err = json.Marshal(sanitize(value))
-	return append(data, '\n'), err
+	return privacy.JSON(report, redact)
 }
 
 func showPorts(w io.Writer, asJSON bool, list func() ([]string, error)) error {

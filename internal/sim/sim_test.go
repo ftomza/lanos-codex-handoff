@@ -132,3 +132,15 @@ func TestInvalidInterval(t *testing.T) {
 		}
 	}
 }
+
+func TestSimulatorFuelInputsHaveExplicitSyntheticProvenance(t *testing.T) {
+	t.Parallel()
+	now := time.Now()
+	s := Sample(now, now.Add(10*time.Second))
+	for _, key := range []string{"rpm", "speed_kmh", "map_kpa", "iat_c"} {
+		sig := s.Signals[key]
+		if sig.Value == nil || sig.Source != "simulator" || sig.Status != "available" {
+			t.Fatalf("missing synthetic signal %s: %+v", key, sig)
+		}
+	}
+}

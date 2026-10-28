@@ -30,7 +30,14 @@ Acceptance: unit tests using fixture responses, including malformed/timeouts; us
 M3 follow-up completed 2026-10-24: native Go BLE via tinygo.org/x/bluetooth
 v0.16.0, Go 1.27, isolated macOS helper, shared ELM/probe, both transports and
 private reports. One physical Go BLE baseline passed all 12 commands on the
-parked running car; details/limits in STATUS.md. Dashboard remains simulator-only.
+parked running car; details/limits in STATUS.md. At that stage the dashboard remained simulator-only; M4 implementation is recorded below.
+
+M3 trip-recorder follow-up implemented 2026-10-24: explicit --record mode,
+private streaming JSONL, supported-input polling and bounded recovery for future
+fuel-computer research. Offline tests passed; owner logs on 2026-10-28 cover a
+60s parked session and 14m36s drive. IAT validity and failed cleanup on stop
+remain unresolved; longer endurance/reconnect need testing. See TRIP_RECORDING.md
+and capabilities.md. This does not complete M4 or M6.
 
 ## M4 — Live source integration
 - Reuse the native BLE transport completed in the M3 utility follow-up as the priority MacBook path, with Serial/SPP as an alternative. Observed IOS-Vlink channels and one successful physical Go BLE baseline are in capabilities.md. Android still requires a separate implementation/validation decision.
@@ -39,6 +46,16 @@ parked running car; details/limits in STATUS.md. Dashboard remains simulator-onl
 - Exponential backoff reconnect, stale-data transitions, error metrics; never fabricate values.
 - Do not assume ISO 9141/14230 support means generic PID availability. Distinguish transport failure from ECU protocol failure.
 Acceptance: live Source tests pass; measure polling rate, latency and stale transitions. Existing utility transport tests and one Go BLE baseline do not verify live Source integration, Android, long-duration stability or engine-restart recovery; test those explicitly.
+
+M4 implementation completed offline on 2026-10-28 in feat/live-dashboard:
+shared continuous Stream/native Source, explicit BLE/serial CLI, four existing
+instruments with independent signal freshness and source-aware UI, bounded
+recovery/error counters and HTTP retained after adapter exhaustion. Go, race,
+HTTP/SSE, browser-logic and build checks passed. **Physical acceptance remains
+pending**: actual polling/latency, forced disconnect/stale/reconnect, longer
+endurance and Android tests are not inferred from existing recorder sessions.
+Build/launch and the next parked test are documented in NEXT_CONNECTION.md.
+M6 fuel estimation is implemented below, with separate physical accuracy acceptance.
 
 ## M5 — Android path
 - First validate browser-based UI on Teclast P85 over LAN; assess fullscreen/kiosk, sleep/wake, brightness, thermal/power behavior.
@@ -63,6 +80,15 @@ Acceptance: documented architecture decision and Android test checklist.
 - Support user calibration from measured full-to-full refueling, with validation and a reversible calibration factor; avoid claiming fuel figures are exact.
 - Provide deterministic simulator fixtures and unit/integration tests for idle, motion, reset, persistence, missing data, disconnects, calibration and zero-speed edge cases.
 Acceptance: fuel computer works end-to-end in simulator with persisted resettable trip totals and transparent estimated/unknown states. Live accuracy and ECU PID support remain pending hardware verification. Implement after M3/M4 as appropriate; no ECU writes.
+
+M6 implementation completed offline on 2026-10-28 in feat/fuel-computer:
+three strategies, explicit assumptions/live IAT opt-in, bounded monotonic trip
+accounting and matched-interval average, source-specific atomic persistence,
+coverage, revisioned reset and reversible full-to-full calibration, HTTP/SSE and
+fuel dashboard panel. Injector model remains unavailable without verified data.
+Simulator HTTP/SSE/reset/persistence/restart passed; full verification is recorded
+in STATUS.md. Real IAT/VE/consumption accuracy, new browser visual acceptance and
+Android remain pending. See FUEL_COMPUTER.md and NEXT_CONNECTION.md.
 
 ## Scope decision — OBD-only first (2026-10-21)
 - Current scope is read-only data obtainable through Vgate iCar Pro BLE 4.0 Dual and the vehicle ECU (model corrected by the owner on 2026-10-24); do not implement ESP32, vehicle wiring taps, auxiliary sensors, or body-signal hardware.

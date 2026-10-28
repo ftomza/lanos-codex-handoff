@@ -7,7 +7,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/elm327"
 )
@@ -41,7 +40,7 @@ func (r *Runner) scan(ctx context.Context, s *elm327.Session, report *Report) er
 	if err != nil {
 		return err
 	}
-	report.StoredDTCs.CapturedAt = time.Now().UTC()
+	report.StoredDTCs.CapturedAt = r.now().UTC()
 	report.StoredDTCs.RawResponse = response.Raw
 	codes, err := elm327.DecodeDTC(response)
 	if err != nil {
@@ -92,7 +91,7 @@ func (r *Runner) discover(ctx context.Context, s *elm327.Session, report *Report
 		if err != nil {
 			return err
 		}
-		bitmap := Bitmap{Command: command, CapturedAt: time.Now().UTC(), RawResponse: response.Raw, Supported: []string{}, Status: "available"}
+		bitmap := Bitmap{Command: command, CapturedAt: r.now().UTC(), RawResponse: response.Raw, Supported: []string{}, Status: "available"}
 		pids, err := elm327.DecodeSupported(byte(base), response)
 		if err != nil {
 			bitmap.Status = "temporarily_unavailable"
@@ -148,13 +147,15 @@ func (r *Runner) sampleOrder(report *Report) []byte {
 }
 
 func (r *Runner) readPID(ctx context.Context, s *elm327.Session, report *Report, pid byte) error {
+	c := &report.Capabilities[int(pid)-1]
+	c.Measurement = elm327.Measurement{}
+	c.Status = "temporarily_unavailable"
 	response, err := r.command(ctx, s, report, "01"+elm327.HexPID(pid))
 	if err != nil {
 		return err
 	}
-	c := &report.Capabilities[int(pid)-1]
 	c.RawResponse = response.Raw
-	c.CapturedAt = time.Now().UTC()
+	c.CapturedAt = r.now().UTC()
 	if response.Status != elm327.OK {
 		c.Status = "temporarily_unavailable"
 		report.unavailable("PID " + c.PID + ": " + string(response.Status))
@@ -175,29 +176,33 @@ func (r *Runner) readPID(ctx context.Context, s *elm327.Session, report *Report,
 }
 
 func (r *Runner) voltage(ctx context.Context, s *elm327.Session, report *Report) error {
+	v := &report.AdapterVoltage
+	v.Value, v.Status = nil, "temporarily_unavailable"
 	response, err := r.command(ctx, s, report, "ATRV")
 	if err != nil {
 		return err
 	}
-	v := &report.AdapterVoltage
-	v.CapturedAt = time.Now().UTC()
-	v.RawResponse = response.Raw
-	v.Status = "temporarily_unavailable"
-	if response.Status != elm327.OK || len(response.Lines) != 1 {
-		report.unavailable("adapter voltage unavailable: " + string(response.Status))
+	v.CapturedAt, v.RawResponse = r.now().UTC(), response.Raw
+	value, err := decodeVoltage(response)
+	if err != nil {
+		report.unavailable(err.Error())
 		return nil
+	}
+	v.Value, v.Status = &value, "available"
+	return nil
+}
+
+func decodeVoltage(response elm327.Response) (float64, error) {
+	if response.Status != elm327.OK || len(response.Lines) != 1 {
+		return 0, fmt.Errorf("adapter voltage unavailable: %s", response.Status)
 	}
 	text := strings.ToUpper(strings.TrimSpace(response.Lines[0]))
 	if !strings.HasSuffix(text, "V") {
-		report.unavailable("adapter voltage has invalid units")
-		return nil
+		return 0, fmt.Errorf("adapter voltage has invalid units")
 	}
 	value, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimSuffix(text, "V")), 64)
 	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 || value > 32 {
-		report.unavailable("invalid adapter voltage response")
-		return nil
+		return 0, fmt.Errorf("invalid adapter voltage response")
 	}
-	v.Value = &value
-	v.Status = "available"
-	return nil
+	return value, nil
 }

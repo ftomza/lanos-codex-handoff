@@ -10,24 +10,27 @@ import (
 )
 
 type Config struct {
-	Transport       string
-	BLEName         string
-	BLEHelper       string
-	ConnectTimeout  time.Duration
-	AdapterModel    string
-	Port            string
-	Baud            int
-	Timeout         time.Duration
-	InitialTimeout  time.Duration
-	RecoveryTimeout time.Duration
-	Retries         int
-	ScanSupported   bool
+	Transport       string        `json:"transport"`
+	BLEName         string        `json:"ble_name"`
+	BLEHelper       string        `json:"ble_helper,omitzero"`
+	ConnectTimeout  time.Duration `json:"connect_timeout_ns"`
+	AdapterModel    string        `json:"adapter_model"`
+	Port            string        `json:"port,omitzero"`
+	Baud            int           `json:"baud,omitzero"`
+	Timeout         time.Duration `json:"timeout_ns"`
+	InitialTimeout  time.Duration `json:"initial_timeout_ns"`
+	RecoveryTimeout time.Duration `json:"recovery_timeout_ns"`
+	Retries         int           `json:"retries"`
+	ScanSupported   bool          `json:"scan_supported"`
 }
 
 type Runner struct {
-	config Config
-	open   func(context.Context) (elm327.Transport, error)
-	wait   func(context.Context, time.Duration) error
+	config   Config
+	open     func(context.Context) (elm327.Transport, error)
+	wait     func(context.Context, time.Duration) error
+	now      func() time.Time
+	observer func(CommandLog) error
+	origin   time.Time
 }
 
 func New(cfg Config, open func(context.Context) (elm327.Transport, error)) (*Runner, error) {
@@ -58,7 +61,7 @@ func New(cfg Config, open func(context.Context) (elm327.Transport, error)) (*Run
 			cfg.ConnectTimeout = 30 * time.Second
 		}
 	}
-	return &Runner{config: cfg, open: open, wait: wait}, nil
+	return &Runner{config: cfg, open: open, wait: wait, now: time.Now}, nil
 }
 
 func wait(ctx context.Context, delay time.Duration) error {
@@ -81,7 +84,7 @@ func (e *linkError) Error() string { return e.err.Error() }
 func (e *linkError) Unwrap() error { return e.err }
 
 func (r *Runner) Run(ctx context.Context) (Report, error) {
-	report := Report{StartedAt: time.Now().UTC(), Commands: []CommandLog{}}
+	report := Report{StartedAt: r.now().UTC(), Commands: []CommandLog{}}
 	var session *elm327.Session
 	var lastErr error
 	needSync := false
@@ -136,7 +139,7 @@ func (r *Runner) Run(ctx context.Context) (Report, error) {
 	if session != nil {
 		lastErr = errors.Join(lastErr, session.Close())
 	}
-	report.CompletedAt = time.Now().UTC()
+	report.CompletedAt = r.now().UTC()
 	if lastErr != nil {
 		report.Status = "failed"
 		report.Error = lastErr.Error()
@@ -148,30 +151,35 @@ func (r *Runner) Run(ctx context.Context) (Report, error) {
 func (r *Runner) openPort(ctx context.Context, report *Report) (elm327.Transport, error) {
 	ctx, cancel := context.WithTimeout(ctx, r.config.ConnectTimeout)
 	defer cancel()
-	started := time.Now().UTC()
+	started := r.now().UTC()
 	wire, err := r.open(ctx)
 	if err != nil {
-		report.Commands = append(report.Commands, CommandLog{Attempt: report.Attempts, Action: "open", Source: report.Transport, StartedAt: started, CompletedAt: time.Now().UTC(), Status: elm327.TransportError, Error: err.Error()})
+		log := CommandLog{Attempt: report.Attempts, Action: "open", Source: report.Transport, StartedAt: started, CompletedAt: r.now().UTC(), Status: elm327.TransportError, Error: err.Error()}
+		err = errors.Join(err, r.audit(report, log))
 	}
 	return wire, err
 }
 
 func (r *Runner) command(ctx context.Context, s *elm327.Session, report *Report, command string) (elm327.Response, error) {
-	started := time.Now().UTC()
+	started := r.now()
 	timeout := r.config.Timeout
 	if command == "0100" {
 		timeout = r.config.InitialTimeout
 	}
 	response, err := s.Command(ctx, command, timeout)
+	completed := r.now()
 	source := "adapter"
 	if command[0] != 'A' {
 		source = "ecu"
 	}
-	log := CommandLog{Attempt: report.Attempts, Action: "command", Command: command, Source: source, StartedAt: started, CompletedAt: time.Now().UTC(), RawResponse: response.Raw, Status: response.Status}
+	log := CommandLog{Attempt: report.Attempts, Action: "command", Command: command, Source: source, StartedAt: started.UTC(), CompletedAt: completed.UTC(), RawResponse: response.Raw, Status: response.Status}
 	if err != nil {
 		log.Error = err.Error()
 	}
-	report.Commands = append(report.Commands, log)
+	r.commandTiming(&log, started, completed)
+	if auditErr := r.audit(report, log); auditErr != nil {
+		return response, auditErr
+	}
 	if err != nil {
 		return response, &linkError{err: fmt.Errorf("command %s: %w", command, err), status: response.Status}
 	}
@@ -179,12 +187,30 @@ func (r *Runner) command(ctx context.Context, s *elm327.Session, report *Report,
 }
 
 func (r *Runner) recover(ctx context.Context, s *elm327.Session, report *Report) error {
-	started := time.Now().UTC()
+	started := r.now()
 	response, err := s.Recover(ctx, r.config.RecoveryTimeout)
-	log := CommandLog{Attempt: report.Attempts, Action: "recovery", Source: "adapter", StartedAt: started, CompletedAt: time.Now().UTC(), RawResponse: response.Raw, Status: response.Status}
+	completed := r.now()
+	log := CommandLog{Attempt: report.Attempts, Action: "recovery", Source: "adapter", StartedAt: started.UTC(), CompletedAt: completed.UTC(), RawResponse: response.Raw, Status: response.Status}
 	if err != nil {
 		log.Error = err.Error()
 	}
+	r.commandTiming(&log, started, completed)
+	return errors.Join(err, r.audit(report, log))
+}
+
+func (r *Runner) audit(report *Report, log CommandLog) error {
+	if r.observer != nil {
+		return r.observer(log)
+	}
 	report.Commands = append(report.Commands, log)
-	return err
+	return nil
+}
+
+func (r *Runner) commandTiming(log *CommandLog, started, completed time.Time) {
+	if r.origin.IsZero() {
+		return
+	}
+	log.StartedElapsedNS = started.Sub(r.origin).Nanoseconds()
+	log.CompletedElapsedNS = completed.Sub(r.origin).Nanoseconds()
+	log.LatencyNS = completed.Sub(started).Nanoseconds()
 }

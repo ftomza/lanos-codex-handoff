@@ -13,9 +13,9 @@
   <main class="dashboard">
     <header class="header">
       <div class="identity"><span class="brand-mark" aria-hidden="true">L</span><div><p class="eyebrow">CHEVROLET / 1.5 8V</p><h1>LANOS <span>dashboard</span></h1></div></div>
-      <div class="header-status"><span id="source" class="source-badge">SIMULATOR</span><span id="connection" class="connection" role="status">Ожидание данных</span></div>
+      <div class="header-status"><span id="source" class="source-badge">UNKNOWN</span><span id="connection" class="connection" role="status">Ожидание данных</span></div>
     </header>
-    <aside class="demo-notice"><span class="notice-icon" aria-hidden="true">i</span><div><strong>Демонстрационный режим</strong><span>Все показания смоделированы. Автомобиль не подключён.</span></div><span class="demo-tag">DEMO</span></aside>
+    <aside class="demo-notice"><span class="notice-icon" aria-hidden="true">i</span><div><strong id="notice-title">Ожидание источника</strong><span id="notice-detail">Источник ещё не определён.</span></div><span id="notice-tag" class="demo-tag">WAIT</span></aside>
     <section class="instruments" aria-label="Основные приборы">
       <article class="card speed-card">
         <div class="card-heading"><h2>Скорость</h2><span class="instrument-code">01 / SPEED</span></div>
@@ -31,17 +31,29 @@
         <div class="rpm-reading"><span id="rpm">—</span><span class="unit">об/мин</span></div>
         <div id="rpm-bars" class="rpm-bars" aria-hidden="true"></div>
         <div class="rpm-scale"><span>0</span><span>3 000</span><span>6 000</span></div>
-        <div class="rpm-footer"><span class="small-dot"></span><span>Данные демонстрационного цикла</span></div>
+        <div class="rpm-footer"><span class="small-dot"></span><span id="rpm-note">Ожидание источника</span></div>
       </article>
     </section>
     <section class="secondary" aria-label="Температура и напряжение">
       <article class="card small-card"><div><h2>Охлаждающая жидкость</h2><p id="coolant-note">Нет данных</p></div><div class="small-reading"><span id="coolant">—</span><span class="unit">°C</span></div></article>
       <article class="card small-card"><div><h2>Напряжение адаптера</h2><p id="voltage-note">Нет данных</p></div><div class="small-reading"><span id="voltage">—</span><span class="unit">В</span></div></article>
     </section>
+    <section id="fuel-panel" class="card fuel-panel" aria-label="Топливный компьютер">
+      <div class="fuel-heading"><div><h2>Топливный компьютер</h2><p id="fuel-model">Ожидание источника</p></div><div class="fuel-actions"><button id="fuel-reset" type="button" disabled>Сброс</button><button id="fuel-calibrate" type="button" disabled>Калибровка</button></div></div>
+      <div class="fuel-metrics">
+        <div><span>Мгновенный</span><strong id="fuel-instant">—</strong><small id="fuel-unit">л/ч</small></div>
+        <div><span>Средний по учтённым участкам</span><strong id="fuel-average">—</strong><small>л/100 км</small></div>
+        <div><span>Топливо после сброса, оценка</span><strong id="fuel-liters">—</strong><small>л</small></div>
+        <div><span>Пробег после сброса</span><strong id="fuel-distance">—</strong><small>км</small></div>
+      </div>
+      <p id="fuel-note" class="fuel-note">Нет данных</p><p id="fuel-error" class="warnings" role="alert" hidden></p>
+    </section>
+    <dialog id="fuel-reset-dialog"><h2>Новый отсчёт поездки</h2><p>Обнулить литры, пробег и покрытие после сброса? Это изменит только локальную поездку.</p><label><input id="fuel-reset-factor" type="checkbox">Также вернуть поправку расхода к 1</label><p data-fuel-error class="warnings" role="alert" hidden></p><div class="dialog-actions"><button type="button" data-close>Отмена</button><button id="fuel-reset-confirm" type="button">Обнулить поездку</button></div></dialog>
+    <dialog id="fuel-calibration-dialog"><h2>Калибровка полного бака</h2><p>Нужны совпадающие границы от полного до полного, не менее 10 учтённых км и полное покрытие. Марка АИ-92 и пробег сами по себе не задают расход.</p><label>Залито бензина, л<input id="fuel-measured" type="number" min="0.01" max="1000" step="0.01" inputmode="decimal"></label><label><input id="fuel-full-to-full" type="checkbox">Это замер от полного до полного за текущий отсчёт</label><p id="fuel-preview-result" role="status"></p><p data-fuel-error class="warnings" role="alert" hidden></p><div class="dialog-actions"><button type="button" data-close>Закрыть</button><button id="fuel-preview" type="button">Рассчитать поправку</button><button id="fuel-apply" type="button" disabled>Применить</button><button id="fuel-undo" type="button">Отменить поправку</button><button id="fuel-default" type="button">Вернуть ×1</button></div></dialog>
     <section id="health-panel" class="health-panel" data-health="connecting" aria-label="Состояние данных">
-      <div class="health-copy"><span id="health-title" class="health-title" role="status">Подключение к источнику</span><p id="health-detail">Ожидаем первые показания симулятора.</p></div>
+      <div class="health-copy"><span id="health-title" class="health-title" role="status">Подключение к источнику</span><p id="health-detail">Ожидаем первые показания источника.</p></div>
       <button id="reconnect" type="button" hidden>Повторить подключение</button>
-      <dl class="timestamps"><div><dt>Измерено</dt><dd id="captured">—</dd></div><div><dt>Получено</dt><dd id="received">—</dd></div></dl>
+      <dl class="timestamps"><div><dt>Ответ на хосте</dt><dd id="captured">—</dd></div><div><dt>Получено</dt><dd id="received">—</dd></div></dl>
     </section>
     <p id="warnings" class="warnings" role="alert" hidden></p>
     <footer><span>LANOS <span class="footer-divider">/</span> Локальная приборка</span><span>Не заменяет штатные приборы автомобиля</span></footer>

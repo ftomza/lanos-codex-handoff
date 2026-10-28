@@ -24,3 +24,25 @@ Deliver a local-first read-only vehicle dashboard: speed, RPM, coolant temperatu
 - `go run ./cmd/obdprobe --list-ports` and read-only probe mode give actionable diagnostics.
 - Read-only ELM commands are logged with timestamp and raw response; no unsupported PID interpreted as zero.
 - UI indicates data source, connectivity, timestamps, stale/disconnected status.
+
+## Live dashboard implementation (2026-10-28)
+
+M4 now reuses the native probe Stream through internal/live and the existing
+HTTP/SSE interface. Explicit `--source=elm327` feeds speed/RPM/coolant/adapter
+supply; sim remains the default. Run `make build-dashboard`, then
+`./bin/dashboard --source=elm327 --transport=ble --ble-name=IOS-Vlink`.
+One adapter stream serves all browsers, with capability gating, independent
+signal TTLs, bounded retries and no simulated fallback. No dependency changes.
+Offline tests passed; new physical dashboard acceptance and Android remain
+pending. M6 is now implemented separately as documented below. See NEXT_CONNECTION.md.
+
+## Fuel computer implementation (2026-10-28)
+
+M6 adds simulator-tested estimates, persistent source-specific trip totals,
+coverage, explicit local reset and reversible full-to-full calibration to the
+existing dashboard. Direct/MAF/speed-density strategies remain behind a common
+interface; this Lanos currently supports only the inputs for an experimental
+speed-density estimate. Live unverified IAT requires explicit opt-in. No silent
+temperature replacement, fuel-cut guess or ECU writes. See FUEL_COMPUTER.md.
+Offline acceptance does not establish real fuel accuracy, sensor validity or
+Android/browser layout; physical tests remain pending.

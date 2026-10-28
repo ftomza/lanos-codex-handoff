@@ -67,3 +67,29 @@ footer { gap: 15px; color: #7f9385; font-size: 10px; margin-top: 18px; }
 @media (max-width: 900px) { .dashboard { padding: 22px; } .header-status { gap: 9px; } .card { padding: 20px; } .instrument-code { display: none; } .rpm-reading { margin-top: 60px; } .demo-notice strong { display: block; margin-bottom: 4px; } .health-panel { flex-wrap: wrap; } .timestamps { margin-left: auto; } }
 @media (max-width: 600px) { .dashboard { padding: 16px; } .header { flex-wrap: wrap; gap: 16px; } .header-status { width: 100%; justify-content: space-between; } .demo-tag { display: none; } .instruments, .secondary { grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; } .speed-dial { max-width: 350px; } .rpm-reading { margin: 26px 0; } .rpm-footer { padding-top: 18px; } .health-panel { align-items: start; } .timestamps { margin: 6px 0 0; width: 100%; } .small-card { min-height: 100px; } footer { align-items: start; flex-direction: column; font-size: 10px; line-height: 1.5; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+
+.fuel-panel { margin-bottom: 18px; padding: 12px 20px; }
+.fuel-heading, .fuel-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.fuel-heading p, .fuel-note { color: var(--muted); font-size: 10px; margin: 5px 0 0; line-height: 1.4; }
+.fuel-actions button { min-height: 44px; padding: 7px 12px; }
+.fuel-metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin: 8px 0; }
+.fuel-metrics span { display: block; font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+.fuel-metrics strong { font: 500 25px/1.2 ui-monospace,monospace; color: #e4f4dc; }
+.fuel-metrics small { margin-left: 7px; color: var(--muted); font-size: 11px; }
+button:disabled { opacity: .5; cursor: default; }
+dialog { max-width: min(460px, calc(100vw - 32px)); color: #e8eee9; background: #1b2820; border: 1px solid #647b58; border-radius: 14px; padding: 24px; }
+dialog::backdrop { background: #000a; }
+dialog p, dialog label { font-size: 13px; line-height: 1.6; }
+dialog label { display: block; margin: 14px 0; }
+dialog input[type="number"] { display: block; width: 100%; margin-top: 8px; padding: 10px; color: inherit; background: #101815; border: 1px solid #647b58; border-radius: 6px; font-size: 16px; }
+.dialog-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+@media (min-width: 901px) and (max-height: 850px) {
+ .dashboard { padding-top: 16px; padding-bottom: 12px; } .header { margin-bottom: 14px; }
+ .demo-notice { padding: 9px 14px; margin-bottom: 12px; } .instruments, .secondary { gap: 14px; margin-bottom: 12px; }
+ .instruments .card { padding: 16px 22px; } .speed-dial { height: 174px; margin-top: 4px; }
+ .speed-arc { height: 174px; } .speed-reading { top: 35px; } .speed-value { font-size: 88px; }
+ .dial-scale span:nth-child(2) { transform: translateY(-145px); } .rpm-reading { margin: 28px 0 22px; }
+ .rpm-footer { padding-top: 18px; } .small-card { min-height: 84px; padding: 14px 22px; }
+ .fuel-panel { margin-bottom: 12px; } .health-panel { padding: 12px 18px; } footer { margin-top: 12px; }
+}
+@media (max-width: 600px) { .fuel-metrics { grid-template-columns: repeat(2,1fr); gap: 14px; } .fuel-heading { align-items: start; flex-wrap: wrap; } .fuel-panel { padding: 16px; } }
