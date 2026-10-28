@@ -57,6 +57,15 @@ endurance and Android tests are not inferred from existing recorder sessions.
 Build/launch and the next parked test are documented in NEXT_CONNECTION.md.
 M6 fuel estimation is implemented below, with separate physical accuracy acceptance.
 
+M4 follow-up 2026-10-28: owner reports first successful combined LIVE M4/M6
+run after PR #3. Ignition-off feedback led to continuous-only ECU standby,
+three failed core-round detection, sparse ATI/0100 checks and bounded reconnect
+bursts followed by 10s idle checks (including retries=0). Finite Run/Record
+remain bounded over the entire run. ECU evidence drives global freshness;
+standby hides instantaneous values and preserves fuel totals with generation
+gaps. The approved standby spec supersedes M4's old terminal total retry budget.
+Physical ignition-cycle/sleep/reconnect acceptance remains separate and pending.
+
 ## M5 — Android path
 - First validate browser-based UI on Teclast P85 over LAN; assess fullscreen/kiosk, sleep/wake, brightness, thermal/power behavior.
 - Choose WebView wrapper or Kotlin native app based on measured performance and Bluetooth support. For direct SPP on Android, native BluetoothSocket and BLUETOOTH_CONNECT permission are needed; web browser cannot directly use Classic SPP.

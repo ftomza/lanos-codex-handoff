@@ -38,7 +38,8 @@ func (r *Runner) Record(parent context.Context, duration time.Duration, sink fun
 	return r.runStream(ctx, parent, duration, sink)
 }
 
-// Stream shares the recorder's polling/recovery without a recording time limit.
+// Stream waits for ECU/adapter availability until canceled. Retries bounds each
+// reconnect burst; a sparse idle check starts a new burst after exhaustion.
 func (r *Runner) Stream(ctx context.Context, sink func(record.Event) error) (RecordingSummary, error) {
 	if sink == nil {
 		return RecordingSummary{}, fmt.Errorf("live stream requires an event sink")
@@ -52,9 +53,13 @@ func (r *Runner) runStream(ctx, parent context.Context, duration time.Duration, 
 	runner.origin = runner.now()
 	s := &recording{r: &runner, started: runner.origin, duration: duration, sink: sink}
 	runner.observer = s.observe
+	run := s.run
+	if duration == 0 {
+		run = s.runLive
+	}
 	err := s.emit("recording_start", recordingMetadata(runner.config, duration))
 	if err == nil {
-		err = s.run(ctx)
+		err = run(ctx)
 	}
 	return s.finish(ctx, parent, err)
 }
@@ -138,16 +143,20 @@ func (s *recording) attempt(ctx context.Context) error {
 			return err
 		}
 		s.session = elm327.NewSession(wire)
-		if s.needSync {
-			s.phase = "synchronize"
-			if err := s.r.recover(ctx, s.session, &s.report); err != nil {
-				return err
-			}
-			s.needSync = false
+	}
+	if s.needSync {
+		s.phase = "synchronize"
+		if err := s.r.recover(ctx, s.session, &s.report); err != nil {
+			return err
 		}
+		s.needSync = false
 	}
 	s.phase = "discovery"
-	if err := s.r.scan(ctx, s.session, &s.report); err != nil {
+	scan := s.r.scan
+	if s.duration == 0 {
+		scan = s.scanLive
+	}
+	if err := scan(ctx, s.session, &s.report); err != nil {
 		return err
 	}
 	capabilities := s.report
@@ -165,17 +174,32 @@ func (s *recording) attempt(ctx context.Context) error {
 
 func (s *recording) poll(ctx context.Context) error {
 	schedule := newPollSchedule(s.report, s.r.now(), s.duration == 0)
+	if s.duration == 0 && len(schedule.core) == 0 {
+		return s.pollWithoutCore(ctx, schedule)
+	}
+	misses := 0
 	for {
 		if err := s.check(ctx); err != nil {
 			return err
 		}
 		roundStart := s.r.now()
+		available := false
 		for _, pid := range schedule.core {
 			if err := s.check(ctx); err != nil {
 				return err
 			}
 			if err := s.r.readPID(ctx, s.session, &s.report, pid); err != nil {
 				return err
+			}
+			available = available || s.report.Capabilities[int(pid)-1].Status == "available"
+		}
+		if s.duration == 0 {
+			misses++
+			if available {
+				misses = 0
+			}
+			if misses >= 3 {
+				return errECUWaiting
 			}
 		}
 		if command := schedule.support(s.r.now()); command != "" {

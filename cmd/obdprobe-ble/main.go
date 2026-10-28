@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/blehelper"
 )
@@ -17,15 +18,21 @@ func main() {
 	defer stop()
 	flags := flag.NewFlagSet("obdprobe-ble", flag.ContinueOnError)
 	name := flags.String("name", "", "explicit BLE device name")
+	connectTimeout := flags.Duration("connect-timeout", 30*time.Second, "native discovery/connect deadline")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if *name == "" || flags.NArg() != 0 {
+	if *name == "" || flags.NArg() != 0 || *connectTimeout <= 0 {
 		fmt.Fprintln(os.Stderr, "explicit --name required; use the obdprobe CLI")
 		os.Exit(1)
 	}
-	if err := blehelper.Serve(ctx, *name, os.Stdin, os.Stdout, blehelper.OpenNative); err != nil {
+	open := func(ctx context.Context, name string, notify func([]byte), lost func(error)) (blehelper.Connection, error) {
+		openCtx, cancel := context.WithTimeout(ctx, *connectTimeout)
+		defer cancel()
+		return blehelper.OpenNative(openCtx, name, notify, lost)
+	}
+	if err := blehelper.Serve(ctx, *name, os.Stdin, os.Stdout, open); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

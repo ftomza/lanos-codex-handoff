@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/blewire"
 )
 
 func TestBLEChild(t *testing.T) {
@@ -25,6 +27,10 @@ func TestBLEChild(t *testing.T) {
 	}
 	if scenario == "bad-ready" {
 		fmt.Println(`{"type":"ready","version":99}`)
+		os.Exit(0)
+	}
+	if scenario == "unavailable" {
+		fmt.Println(`{"type":"error","code":"unavailable","error":"target not found"}`)
 		os.Exit(0)
 	}
 	fmt.Println(`{"type":"ready","version":1}`)
@@ -64,6 +70,10 @@ func TestBLEChild(t *testing.T) {
 		}
 		if m.Type != "write" {
 			os.Exit(3)
+		}
+		if scenario == "disconnect" {
+			fmt.Println(`{"type":"error","code":"disconnected","error":"ble device disconnected"}`)
+			os.Exit(0)
 		}
 		if scenario == "no-ack" {
 			continue
@@ -318,5 +328,33 @@ func TestHelperCloseFailureRetainsDiagnostics(t *testing.T) {
 	}
 	if next := d.Close(); next != err {
 		t.Fatalf("Close lost original result: %v", next)
+	}
+}
+
+func TestReportedDisconnectHasCleanClose(t *testing.T) {
+	t.Parallel()
+	d := testDevice(t, "disconnect")
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	_, err := d.Write(ctx, []byte("ATI\r"))
+	if !errors.Is(err, blewire.ErrDisconnected) {
+		t.Fatalf("disconnect type lost: %v", err)
+	}
+	if err := d.Close(); err != nil {
+		t.Fatalf("expected disconnect became cleanup failure: %v", err)
+	}
+}
+
+func TestReportedUnavailableCanRetryButMissingHelperCannot(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	_, err := openCommand(ctx, childCommand(t, "unavailable"))
+	if !errors.Is(err, blewire.ErrUnavailable) {
+		t.Fatalf("unavailable type lost: %v", err)
+	}
+	_, err = Open(t.Context(), Config{Name: "IOS-Vlink", Helper: "/nonexistent/obdprobe-ble"})
+	if errors.Is(err, blewire.ErrUnavailable) || !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing helper classified as unavailable adapter: %v", err)
 	}
 }

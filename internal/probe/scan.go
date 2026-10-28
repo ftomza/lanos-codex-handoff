@@ -18,6 +18,10 @@ func (r *Runner) scan(ctx context.Context, s *elm327.Session, report *Report) er
 	if err := r.discover(ctx, s, report); err != nil {
 		return err
 	}
+	return r.scanReadings(ctx, s, report)
+}
+
+func (r *Runner) scanReadings(ctx context.Context, s *elm327.Session, report *Report) error {
 	response, err := r.command(ctx, s, report, "ATDPN")
 	if err != nil {
 		return err

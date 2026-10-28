@@ -25,12 +25,14 @@ import (
 // Saved physical response bytes plus explicitly synthetic ATRV/continuation.
 // Access to pending is serialized by the real ELM Session, as on the adapter.
 type liveFixture struct {
-	responses map[string]string
-	pending   []byte
-	mu        sync.Mutex
-	commands  []string
-	fail      atomic.Bool
-	closed    atomic.Int32
+	responses  map[string]string
+	pending    []byte
+	mu         sync.Mutex
+	commands   []string
+	fail       atomic.Bool
+	failure    error
+	ecuOffline atomic.Bool
+	closed     atomic.Int32
 }
 
 func newLiveFixture(t *testing.T) *liveFixture {
@@ -45,7 +47,7 @@ func newLiveFixture(t *testing.T) *liveFixture {
 	if err := json.Unmarshal(data, &f); err != nil {
 		t.Fatal(err)
 	}
-	a := &liveFixture{responses: make(map[string]string, len(f.Exchanges)+2)}
+	a := &liveFixture{responses: make(map[string]string, len(f.Exchanges)+2), failure: io.EOF}
 	for _, x := range f.Exchanges {
 		a.responses[x.Command] = x.Raw
 	}
@@ -59,7 +61,7 @@ func (a *liveFixture) Write(ctx context.Context, p []byte) (int, error) {
 		return 0, err
 	}
 	if a.fail.Load() {
-		return 0, io.EOF
+		return 0, a.failure
 	}
 	command := strings.TrimSuffix(string(p), "\r")
 	a.mu.Lock()
@@ -67,6 +69,9 @@ func (a *liveFixture) Write(ctx context.Context, p []byte) (int, error) {
 	a.mu.Unlock()
 	response, ok := a.responses[command]
 	if !ok {
+		response = "NO DATA\r>"
+	}
+	if a.ecuOffline.Load() && strings.HasPrefix(command, "01") {
 		response = "NO DATA\r>"
 	}
 	a.pending = append(a.pending, response...)
@@ -103,6 +108,7 @@ func openLiveEvents(t *testing.T, ctx context.Context, client *http.Client, url 
 func TestLiveELMStreamSharedByBrowsersAndSurvivesTerminalFailure(t *testing.T) {
 	t.Parallel()
 	a := newLiveFixture(t)
+	a.failure = errors.New("invalid native transport protocol")
 	var opens atomic.Int32
 	source, err := live.New(probe.Config{Transport: "ble"}, func(context.Context) (elm327.Transport, error) {
 		opens.Add(1)
@@ -160,7 +166,7 @@ func TestLiveELMStreamSharedByBrowsersAndSurvivesTerminalFailure(t *testing.T) {
 	cancel()
 	select {
 	case err := <-done:
-		if !errors.Is(err, io.EOF) {
+		if !errors.Is(err, a.failure) {
 			t.Fatalf("lost cleanup/terminal evidence: %v", err)
 		}
 	case <-time.After(time.Second):
@@ -175,6 +181,75 @@ func TestLiveELMStreamSharedByBrowsersAndSurvivesTerminalFailure(t *testing.T) {
 		if slices.Contains(a.commands, blocked) {
 			t.Fatalf("unsupported or forbidden command: %s", blocked)
 		}
+	}
+}
+
+func TestLiveBrowsersWaitForIgnitionAndResumeWithoutRestart(t *testing.T) {
+	t.Parallel()
+	a := newLiveFixture(t)
+	a.ecuOffline.Store(true)
+	var opens atomic.Int32
+	source, err := live.New(probe.Config{Transport: "ble"}, func(context.Context) (elm327.Transport, error) {
+		opens.Add(1)
+		return a, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := New(Config{SourceName: telemetry.Live, StreamInterval: time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- s.Run(ctx, source) }()
+	host := httptest.NewServer(s.Handler())
+	t.Cleanup(host.Close)
+	clients := []*bufio.Scanner{
+		openLiveEvents(t, ctx, host.Client(), host.URL),
+		openLiveEvents(t, ctx, host.Client(), host.URL),
+	}
+	for _, client := range clients {
+		e := readEvent(t, client)
+		for !strings.Contains(e.Message, "возможно, зажигание выключено") {
+			e = readEvent(t, client)
+		}
+		if e.Source != telemetry.Live || e.Health != telemetry.Connecting || e.RPM != nil || e.VoltageV != nil {
+			t.Fatalf("false live values in standby: %+v", e)
+		}
+	}
+	a.ecuOffline.Store(false)
+	// Both browsers consume throughout the wait; an idle socket is correctly
+	// closed by the server's existing bounded write deadline.
+	ready := make([]bool, len(clients))
+	remaining := len(clients)
+	for remaining > 0 {
+		for i, client := range clients {
+			e := readEvent(t, client)
+			if e.Health != telemetry.Connected {
+				continue
+			}
+			if e.Generation != 2 || e.RPM == nil || *e.RPM != 0 || e.CoolantC == nil || *e.CoolantC != 78 || opens.Load() != 1 {
+				t.Fatalf("failed to recover shared source: %+v opens=%d", e, opens.Load())
+			}
+			if !ready[i] {
+				ready[i] = true
+				remaining--
+			}
+		}
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("standby worker did not join")
+	}
+	if a.closed.Load() != 1 {
+		t.Fatal("transport not closed exactly once")
 	}
 }
 

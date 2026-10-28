@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -13,12 +14,13 @@ import (
 )
 
 type fakeConnection struct {
-	closed bool
-	write  func([]byte) (int, error)
+	closed   bool
+	write    func([]byte) (int, error)
+	closeErr error
 }
 
 func (f *fakeConnection) Write(ctx context.Context, b []byte) (int, error) { return f.write(b) }
-func (f *fakeConnection) Close() error                                     { f.closed = true; return nil }
+func (f *fakeConnection) Close() error                                     { f.closed = true; return f.closeErr }
 
 func TestHelperPreservesBytesAndAcknowledgements(t *testing.T) {
 	t.Parallel()
@@ -89,5 +91,55 @@ func TestHelperOpenFailure(t *testing.T) {
 	err := Serve(t.Context(), "IOS-Vlink", strings.NewReader(""), &output, func(context.Context, string, func([]byte), func(error)) (Connection, error) { return nil, cause })
 	if !errors.Is(err, cause) || strings.Contains(output.String(), `"ready"`) || !strings.Contains(output.String(), "Bluetooth access denied") {
 		t.Fatalf("startup: %v %s", err, output.String())
+	}
+}
+
+func TestHelperSeparatesTransientDisconnectFromCleanupFailure(t *testing.T) {
+	t.Parallel()
+	for _, cleanup := range []bool{false, true} {
+		t.Run(fmt.Sprint(cleanup), func(t *testing.T) {
+			t.Parallel()
+			var output bytes.Buffer
+			f := &fakeConnection{}
+			if cleanup {
+				f.closeErr = errors.New("unsubscribe failed")
+			}
+			err := Serve(t.Context(), "IOS-Vlink", strings.NewReader(""), &output, func(ctx context.Context, _ string, _ func([]byte), lost func(error)) (Connection, error) {
+				lost(blewire.ErrDisconnected)
+				return f, nil
+			})
+			if (err != nil) != cleanup || !f.closed {
+				t.Fatalf("cleanup=%t err=%v closed=%t", cleanup, err, f.closed)
+			}
+			if strings.Contains(output.String(), `"code":"disconnected"`) == cleanup {
+				t.Fatalf("wrong transient classification: %s", output.String())
+			}
+			if cleanup && !strings.Contains(output.String(), "unsubscribe failed") {
+				t.Fatal("cleanup evidence lost")
+			}
+		})
+	}
+}
+
+func TestHelperReportsUnavailableWithoutFatalExit(t *testing.T) {
+	t.Parallel()
+	var output bytes.Buffer
+	err := Serve(t.Context(), "IOS-Vlink", strings.NewReader(""), &output, func(context.Context, string, func([]byte), func(error)) (Connection, error) {
+		return nil, blewire.ErrUnavailable
+	})
+	if err != nil || !strings.Contains(output.String(), `"code":"unavailable"`) {
+		t.Fatalf("unavailable: %v output=%s", err, output.String())
+	}
+}
+
+func TestHelperJoinedFatalOpenErrorIsNotClassifiedTransient(t *testing.T) {
+	t.Parallel()
+	var output bytes.Buffer
+	cause := errors.New("native cleanup failed")
+	err := Serve(t.Context(), "IOS-Vlink", strings.NewReader(""), &output, func(context.Context, string, func([]byte), func(error)) (Connection, error) {
+		return nil, errors.Join(blewire.ErrUnavailable, cause)
+	})
+	if !errors.Is(err, cause) || strings.Contains(output.String(), `"code":"unavailable"`) {
+		t.Fatalf("joined fatal error hidden: %v %s", err, output.String())
 	}
 }

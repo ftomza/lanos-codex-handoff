@@ -1,6 +1,7 @@
 package live
 
 import (
+	"strings"
 	"time"
 
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/elm327"
@@ -50,6 +51,10 @@ func (s *Source) consume(event record.Event) error {
 	case "recovery":
 		s.latest.Diagnostics.Recoveries++
 		s.clear(telemetry.Connecting, "Ожидаем ответ адаптера для восстановления связи", false)
+	case "standby":
+		if data, ok := event.Data.(probe.Standby); ok {
+			s.clear(telemetry.Connecting, standbyMessage(data.Reason), false)
+		}
 	case "capabilities":
 		if data, ok := event.Data.(probe.RecordingCapabilities); ok {
 			s.capabilities(data)
@@ -71,6 +76,7 @@ func (s *Source) consume(event record.Event) error {
 
 func (s *Source) clear(health telemetry.Health, message string, reset bool) {
 	s.active = false
+	s.ecuSeen = false
 	s.latest.Health, s.latest.Message = health, message
 	s.latest.RPM, s.latest.SpeedKMH, s.latest.CoolantC, s.latest.VoltageV = nil, nil, nil, nil
 	s.latest.CapturedAt, s.latest.ReceivedAt = time.Time{}, time.Time{}
@@ -93,7 +99,10 @@ func (s *Source) command(data probe.RecordingCommand) {
 	if data.Status != elm327.OK || data.Error != "" || data.Result != nil && (data.Result.Status == "temporarily_unavailable" || data.Result.Status == "invalid_response") {
 		s.latest.Diagnostics.Errors++
 	}
-	if !data.CompletedAt.IsZero() {
+	ecu := strings.HasPrefix(data.Command, "01") && data.Status == elm327.OK && data.Error == "" &&
+		data.Result != nil && (data.Result.Status == "available" || data.Result.Status == "raw_only" || data.Result.Status == "capability")
+	if ecu && !data.CompletedAt.IsZero() {
+		s.ecuSeen = true
 		s.latest.CapturedAt, s.latest.ReceivedAt = data.CompletedAt, s.now().UTC()
 	}
 	for _, def := range definitions {
@@ -113,7 +122,7 @@ func (s *Source) command(data probe.RecordingCommand) {
 		}
 		s.latest.Signals[def.name] = signal
 	}
-	if s.active {
+	if s.active && ecu {
 		s.latest.Health = telemetry.Connected
 		s.latest.Message = "Получаем показания ЭБУ"
 	}
@@ -121,7 +130,10 @@ func (s *Source) command(data probe.RecordingCommand) {
 
 func (s *Source) capabilities(data probe.RecordingCapabilities) {
 	s.active = true
-	s.latest.Health, s.latest.Message = telemetry.Connected, "Получаем показания ЭБУ"
+	s.latest.Health, s.latest.Message = telemetry.Connecting, standbyMessage("ecu")
+	if s.ecuSeen {
+		s.latest.Health, s.latest.Message = telemetry.Connected, "Получаем показания ЭБУ"
+	}
 	s.latest.Adapter = data.Report.Adapter
 	if data.Report.Protocol != nil {
 		s.latest.Protocol = data.Report.Protocol.Code
@@ -145,5 +157,16 @@ func (s *Source) capabilities(data probe.RecordingCapabilities) {
 			}
 			s.latest.Signals[def.name] = signal
 		}
+	}
+}
+
+func standbyMessage(reason string) string {
+	switch reason {
+	case "ecu":
+		return "Адаптер подключён. ЭБУ не отвечает — возможно, зажигание выключено. Ожидаем…"
+	case "synchronize":
+		return "Ожидаем завершения ответа адаптера для безопасного восстановления связи…"
+	default:
+		return "Нет связи с адаптером. Ожидаем подключения…"
 	}
 }

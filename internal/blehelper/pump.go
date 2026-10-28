@@ -63,7 +63,7 @@ func newPump(cancel context.CancelFunc, out io.Writer) *outputPump {
 
 func (p *outputPump) fail(err error) {
 	if err == nil {
-		err = fmt.Errorf("ble disconnected")
+		err = blewire.ErrDisconnected
 	}
 	p.once.Do(func() { p.failed.Store(true); p.fault <- err; p.cancel() })
 }
@@ -101,13 +101,13 @@ func (p *outputPump) send(ctx context.Context, m blewire.Message) error {
 	}
 }
 
-func (p *outputPump) finalError(err error) {
+func (p *outputPump) finalError(err error, code string) {
 	message := err.Error()
 	if len(message) > 4096 {
 		message = message[:4096]
 	}
 	select {
-	case p.events <- blewire.Message{Type: "error", Error: message}:
+	case p.events <- blewire.Message{Type: "error", Error: message, Code: code}:
 	case <-p.done:
 	}
 }

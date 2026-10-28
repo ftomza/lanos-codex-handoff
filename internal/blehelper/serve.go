@@ -24,13 +24,7 @@ func Serve(ctx context.Context, name string, input io.Reader, output io.Writer, 
 	var connection Connection
 	defer func() {
 		cancel()
-		if connection != nil {
-			err = errors.Join(err, connection.Close())
-		}
-		if err != nil {
-			pump.finalError(err)
-		}
-		err = errors.Join(err, pump.finish())
+		err = finishConnection(pump, connection, err)
 	}()
 	connection, err = open(runCtx, name, pump.notify, pump.fail)
 	if err != nil {

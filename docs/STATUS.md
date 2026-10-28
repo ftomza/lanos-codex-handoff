@@ -4,8 +4,9 @@
 M0–M3 complete. M4 live dashboard and M6 fuel computer are implemented,
 offline-verified and merged into main via PR #3 (87f324e). The owner reports
 a successful first combined LIVE run; no duration, readings or logs supplied.
-Ignition-off waiting/recovery is now reported defective and is under design
-in fix/ecu-standby. Measured polling/latency, recovery/endurance, fuel accuracy,
+The ignition-off waiting defect has an offline-verified fix in fix/ecu-standby:
+continuous LIVE waits and resumes after ECU/adapter availability returns.
+Measured polling/latency, physical ignition recovery/endurance, fuel accuracy,
 IAT validation and Android/device acceptance remain pending.
 Default dashboard source remains sim; explicit
 --source=elm327 selects native BLE or serial without simulated fallback.
@@ -40,8 +41,10 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
-Review docs/superpowers/specs/2026-10-28-ecu-standby-design.md before changing
-LIVE retry/standby behavior. Design only; no fix or new hardware test yet.
+Owner approved docs/superpowers/specs/2026-10-28-ecu-standby-design.md.
+Implementation/offline checks complete in fix/ecu-standby. Review the feature
+branch and follow NEXT_CONNECTION.md for a separately agreed parked ignition
+cycle test. No physical vehicle was accessed for this fix.
 
 Owner approved M6; it is now merged into main with the new fuel
 panel, persistent totals/coverage, local reset and reversible calibration.
@@ -65,9 +68,14 @@ explicitly agreed scenario. Detailed physical M4 recovery/timing acceptance,
 Android and endurance remain pending.
 
 The four instruments use independent freshness (RPM/speed 3s, coolant 35s,
-ATRV 130s), plus global 3s silence. Terminal adapter failure leaves HTTP running
-as LIVE/disconnected, requiring process restart for a new adapter retry budget.
-Browser retries only restore SSE/server access. New recorder summaries retain
+ATRV 130s), plus global 3s ECU silence. LIVE now uses bounded reconnect bursts
+and 10s idle pauses until canceled; retries=0 still waits for ECU/adapter return.
+ECU standby uses sparse ATI/0100 checks and distinguishes missing adapter from
+possibly-off ignition. No new command may precede pending-prompt recovery.
+Configuration/permission/unknown initialization and real cleanup errors remain
+terminal with HTTP running as LIVE/disconnected. Browser retries only restore
+SSE/server access. Finite probe/record retry budgets are unchanged.
+New recorder summaries retain
 actual cleanup errors; offline helper cancellation/forced-close tests passed.
 The exact old engine-off/Ctrl+C failure is still unknown and was not suppressed.
 
@@ -88,7 +96,7 @@ terminals. Old recordings are not presented as measured fuel consumption.
 - M3 follow-up — native Go BLE transport, private export, baseline physically passed.
 - M3 discovery follow-up — native Go supported scan physically passed; 18 data PIDs.
 - M3 trip-recorder follow-up — offline-tested, then owner 60s/14m36s recordings analyzed; cleanup/IAT issues remain.
-- M4 — merged/offline checks complete; first LIVE run reported successful by owner; ignition-off recovery defective, detailed physical acceptance pending.
+- M4 — merged/offline checks complete; first LIVE run reported successful by owner; ignition-off fix offline-verified in fix/ecu-standby, physical acceptance pending.
 - M6 — merged/simulator acceptance complete; first combined LIVE run reported successful; live accuracy/IAT/calibration and visual/device acceptance pending.
 
 ## Decisions and risks
@@ -817,3 +825,57 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   accessed. test.py/test2.py, private recordings and fuel state untouched.
 - Next: owner review, implementation plan and failing regressions, then code,
   offline checks and separately agreed parked ignition-cycle acceptance.
+
+### 2026-10-28 — Approved ECU standby implementation, offline acceptance
+
+- Owner approved the written design; implemented inline on fix/ecu-standby
+  following docs/superpowers/plans/2026-10-28-ecu-standby.md. No dependencies,
+  Go version, fuel model, state schema, ECU allowlist or ADAS changes.
+- Continuous Stream alone has an availability supervisor: missing first bitmap
+  or three failed core rounds enters ECU standby; one absent PID and measured
+  zero RPM remain valid cases. Sparse ATI/0100 checks avoid repeated full scans
+  while ECU is absent. No-core profiles check 0100 on the idle interval.
+- Transport recovery uses 1+Retries bursts, capped existing backoff and 10s
+  pauses between bursts, including retries=0. Waiting remains cancelable.
+  Timeout retains the session for read-only Recover; reopen retains needSync.
+  No write/reinitialization before consuming a pending prompt. If the prompt
+  never arrives, manual adapter intervention may still be necessary.
+- LIVE Source publishes distinct ECU/adapter/synchronization messages with
+  connecting health. Actual Mode 01 evidence alone updates global freshness;
+  capabilities without ECU evidence and AT replies cannot create connected.
+  Independent TTLs and new generation after recovery prevent old live values
+  or fuel integration across gaps. Historical trip totals/reset/calibration
+  survive; instantaneous fuel disappears and coverage becomes partial.
+- BLE helper distinguishes expected disconnect/target-unavailable with optional
+  typed wire codes after successful cleanup and exits cleanly for those cases.
+  Native scan gets a cooperative deadline before the parent's hard bound.
+  Unknown/config/permission errors, malformed framing, sink and actual cleanup
+  failures remain terminal. Joined errors cannot hide a fatal cause behind a
+  temporary error. Both binaries must be rebuilt together.
+- Initial regressions reproduced terminal retries=0, false capabilities from
+  NO DATA and lack of ignition-off transition; Source regressions reproduced
+  AT activity refreshing ECU health. Tests were added before the fixes.
+  A helper startup-loss test exposed internal context cancellation hiding the
+  real disconnect; retained the callback cause. Joined-error regressions
+  exposed and corrected masking of fatal permission/cleanup failures.
+- HTTP/SSE integration passed startup without ECU -> 10s standby -> live data
+  for two actively consuming browsers, one adapter open, new generation and
+  clean cancellation. A first test left its second socket unread for 10s and
+  correctly hit the server write deadline; fixed the test to consume both.
+  Fuel integration verifies retained totals and no bridge even when a slow
+  consumer skips standby. Finite Run/Record and existing cleanup tests pass.
+- Passed: go test ./... -count=1; go test -race ./...; make lint;
+  make test-web (23 tests); make build-dashboard; make build-obdprobe;
+  go vet -tags=nativeble ./cmd/obdprobe-ble; git diff --check.
+  Initial race run exposed a test reusing a deadline after waiting for a race
+  helper process to exit; fresh context fixed it, full rerun passed. Build-cache
+  sandbox warnings were followed by successful approved builds outside sandbox.
+  goimports is unavailable; gofmt and manual import grouping review applied.
+- Built simulator smoke passed HTTP page/snapshot, computed fuel, two SSE
+  clients, SIGINT exit 0 and private 0600 state in an isolated temporary folder.
+  Owner fuel state and private recordings untouched. Documentation/help now
+  explain new LIVE retry semantics and the next parked ignition-cycle test.
+- No physical BLE/serial connection, ECU request or ignition change performed.
+  Vgate sleep/wake, physical automatic recovery, measured timing, endurance,
+  Android and fuel accuracy remain unverified. test.py/test2.py are excluded.
+  Next: commit/push feature branch, review, then separately agreed parked test.

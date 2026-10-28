@@ -1,6 +1,13 @@
 // Package blewire defines the bounded byte-only protocol to the native BLE child.
 package blewire
 
+import "errors"
+
+var (
+	ErrDisconnected = errors.New("ble device disconnected")
+	ErrUnavailable  = errors.New("ble target unavailable")
+)
+
 const (
 	Version   = 1
 	MaxLine   = 32 * 1024
@@ -17,4 +24,5 @@ type Message struct {
 	ID      uint64 `json:"id,omitempty"`
 	Data    []byte `json:"data,omitempty"`
 	Error   string `json:"error,omitempty"`
+	Code    string `json:"code,omitempty"`
 }
