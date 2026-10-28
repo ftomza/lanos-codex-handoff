@@ -11,9 +11,12 @@ The subsequent native Go supported-PID scan also passed: 27 commands, one
 attempt, 18 data PIDs read (14 decoded, four raw_only), no warnings. Bitmaps
 BE3EB811/C0000000 were confirmed. MAP/IAT/load/throttle/trims/O2 are now observed;
 the latest readings and exact payloads are documented in capabilities.md.
-The new --record trip grabber is implemented and offline-tested, with private
-incremental JSONL, scheduled capability-gated polling and bounded recovery.
-It has not yet been run physically; it does not calculate fuel consumption.
+The --record trip grabber is implemented with private incremental JSONL,
+scheduled capability-gated polling and bounded recovery. Owner logs on
+2026-10-28 verify a 60s parked recording and a 14m36s drive on AI-92, with one
+segment and no gap/recovery events. The longer recording ends failed after
+engine-off/Ctrl+C, with the cleanup cause absent from its summary. IAT is
+unverified (-40°C then constant +20°C); fuel consumption is not calculated.
 Earlier Go SPP attempts received no ATZ response; their root cause is unresolved.
 
 Owner correction: the device is **Vgate iCar Pro BLE 4.0 Dual**. Classic SPP
@@ -29,11 +32,14 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
-Trip recorder is ready for a short parked test before an unattended trip:
-`make build-obdprobe`, then `./bin/obdprobe --transport=ble --record --duration=1m
---retries=0`. The owner starts future hardware runs; none occurred during this
-implementation. See docs/TRIP_RECORDING.md for the trip command, file location,
-stop behavior and independent refueling/odometer notes needed for calibration.
+The two owner recordings have been analyzed; see capabilities.md and private
+diagnostics/trip-analysis-20261028-001.json. Next validate the IAT channel and
+investigate failed cleanup after Ctrl+C, retaining the actual terminal error if
+it recurs. Source decoding matches raw; do not replace -40°C with an assumed
+temperature. OBD distance is 9.49054 km versus owner odometer 167→177 km; do not
+apply a correction from rounded endpoints alone. Fuel calibration still needs
+independently measured refueling liters and coverage of the calibration interval.
+No new hardware query or production-code change was made in this analysis.
 
 The requested Go utility fix is implemented and physically verified for a BLE
 baseline and a supported-PID scan. Build both binaries with make build-obdprobe; use
@@ -56,7 +62,7 @@ at the battery terminals; it is not a direct generator or ECU voltage measuremen
 - M3 — read-only diagnostic CLI, real-session fixture, discovery and recovery.
 - M3 follow-up — native Go BLE transport, private export, baseline physically passed.
 - M3 discovery follow-up — native Go supported scan physically passed; 18 data PIDs.
-- M3 trip-recorder follow-up — implemented/offline-tested; physical recording pending.
+- M3 trip-recorder follow-up — offline-tested, then owner 60s/14m36s recordings analyzed; cleanup/IAT issues remain.
 
 ## Decisions and risks
 - Local-first, read-only diagnostics.
@@ -545,3 +551,54 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
 - Next: owner short parked recording, then ordinary unattended trip plus fuel
   type/odometer/refueling notes; inspect actual sample intervals and gaps before
   constructing/calibrating the speed-density fuel estimator.
+
+### 2026-10-28 — offline analysis of two owner recordings
+
+- Owner supplied two local native Go BLE JSONL recordings (build 79fec0b),
+  clarified gasoline AI-92 and large-trip odometer 167→177 km, then confirmed
+  engine stopped before Ctrl+C. No new adapter/ECU access by the agent.
+- Short file: trip-20261028T052932Z-850540930.jsonl, 212 valid lines, 60.037s,
+  207 commands, 206 ok and one canceled-by-duration timeout at the end;
+  recording_end reason duration, one segment, zero gap/recovery events.
+  Speed always zero, RPM 943.25–994.75, coolant 25→31°C, ATRV 13.7V.
+- Large file: trip-20261028T053157Z-2657108889.jsonl, 3393 valid lines,
+  876.350s / 14m36s, 3388 commands: 3383 ok, four NO DATA after RPM reached
+  zero, one final context-canceled command. One segment, no gap/recovery events.
+  recording_end exists but reason failed; exact cleanup error is not exported.
+  Source review shows a cleanup error can override normal cancellation. Do not
+  claim a proven cause or clean helper shutdown without its terminal error.
+- Large-trip readings: speed 0–64 km/h; RPM 0–3101.75; MAP 27–102 kPa;
+  coolant 42→86°C (minimum 41°C); ATRV initially 12.3V, later 13.2–13.6V.
+  Historical 11V is not reproduced here; adapter voltage accuracy remains
+  independently unverified. MIL false/count 0 in 14 readings; initial Mode 03
+  contains no stored DTC, pending/permanent untested.
+- Each core PID has 840 successful responses, 839 after discovery. Polling
+  interval median 1.020s/p95 about 1.050s; speed maximum 1.154s. IAT median
+  8.251s, maximum 11.220s. No observed polling interruption before shutdown;
+  this does not validate forced reconnect, Android or longer endurance.
+- OBD speed integral 9.4905368 km using same-segment trapezoids with dt ≤5s,
+  no extrapolation; 860.358s covered. Excluded the initial 6.390s scan→polling
+  interval. Versus owner 10 km: -0.50946 km/-5.095%; odometer resolution and
+  precise interval boundaries unknown, so no correction factor applied.
+- IAT raw 410F00: all seven short-file samples and first 34 of 101 large-file
+  samples. At elapsed 298.695s it changes to 410F3C, then stays exactly 20°C
+  for 67 samples. Decoder matches raw; sensor validity/fallback behavior is
+  unknown. Do not diagnose a failed sensor or silently substitute temperature.
+- Conservative alignment: prior MAP/speed age ≤3s and IAT ≤15s, provisionally
+  excluding -40°C. Of 833 engine-on polling RPM points, 556 provisionally usable,
+  276 have unresolved IAT, one lacks a fresh input. Remaining IAT accuracy and
+  VE/mixture modeling are not verified. No fuel volume/L100km inferred from
+  AI-92/odometer alone; independent refueling liters are still required.
+- Python stdlib offline validation checked JSON/sequence/schema/monotonic
+  timing, final events, raw values and independently decoded 3213 numeric
+  readings in the large file. Private aggregate + owner notes saved exclusively
+  as diagnostics/trip-analysis-20261028-001.json (0600). Original SHA256s:
+  short a0954d207450292c902fbcb4081d8f00893f336f96b182965d1f26865d7ad346;
+  large ee6fdf136b6a29bc82dd16b3779d7c187623a98db17ceceaeb39b7f1b83de699.
+- Updated physical evidence/status/guidance. Production code/dependencies and
+  user test.py/test2.py unchanged; raw/aggregate files remain ignored/private.
+  No Go tests rerun for this documentation-only analysis; git diff --check and
+  data integrity/numeric checks passed. M4/M6 remain incomplete.
+- Next: diagnose IAT and cancellation cleanup offline/at a separately agreed
+  parked session as needed; then decide estimator quality rules and collect
+  independent full-to-full fuel measurements before claiming fuel accuracy.

@@ -194,8 +194,10 @@ Each event is synced before the next command. Gaps and unavailable readings are
 explicit; recording mode never grows an in-memory command history.
 
 See [TRIP_RECORDING.md](docs/TRIP_RECORDING.md) for setup, data schedule, failure
-behavior, schema and refueling notes. Offline tests cover recording; physical
-endurance/driving behavior remains untested. This does not complete M4 or M6.
+behavior, schema and refueling notes. Owner logs from 2026-10-28 cover a 60s
+parked recording and a 14m36s drive. IAT validity and failed cleanup after stop
+remain unresolved; longer endurance/reconnect are untested. This does not
+complete M4 or M6.
 
 ## Boundaries
 

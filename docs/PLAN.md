@@ -34,8 +34,10 @@ parked running car; details/limits in STATUS.md. Dashboard remains simulator-onl
 
 M3 trip-recorder follow-up implemented 2026-10-24: explicit --record mode,
 private streaming JSONL, supported-input polling and bounded recovery for future
-fuel-computer research. Offline tests passed; physical recording/endurance is
-pending. See TRIP_RECORDING.md. This does not complete M4 or M6.
+fuel-computer research. Offline tests passed; owner logs on 2026-10-28 cover a
+60s parked session and 14m36s drive. IAT validity and failed cleanup on stop
+remain unresolved; longer endurance/reconnect need testing. See TRIP_RECORDING.md
+and capabilities.md. This does not complete M4 or M6.
 
 ## M4 — Live source integration
 - Reuse the native BLE transport completed in the M3 utility follow-up as the priority MacBook path, with Serial/SPP as an alternative. Observed IOS-Vlink channels and one successful physical Go BLE baseline are in capabilities.md. Android still requires a separate implementation/validation decision.
