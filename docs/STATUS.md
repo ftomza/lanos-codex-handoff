@@ -1,10 +1,12 @@
 # Session handoff / status
 
 ## Current state
-M0–M3 complete. M4 live dashboard is implemented and offline-verified in
-feat/live-dashboard; physical dashboard acceptance is still pending. M6 fuel
-computer is now implemented/offline-tested in feat/fuel-computer; physical
-fuel accuracy and new visual/device acceptance remain pending.
+M0–M3 complete. M4 live dashboard and M6 fuel computer are implemented,
+offline-verified and merged into main via PR #3 (87f324e). The owner reports
+a successful first combined LIVE run; no duration, readings or logs supplied.
+Ignition-off waiting/recovery is now reported defective and is under design
+in fix/ecu-standby. Measured polling/latency, recovery/endurance, fuel accuracy,
+IAT validation and Android/device acceptance remain pending.
 Default dashboard source remains sim; explicit
 --source=elm327 selects native BLE or serial without simulated fallback.
 The Go read-only obdprobe provides macOS native BLE and serial, shared ELM framing/recovery,
@@ -38,7 +40,10 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
-Owner approved M6; it is now implemented on feat/fuel-computer with the new fuel
+Review docs/superpowers/specs/2026-10-28-ecu-standby-design.md before changing
+LIVE retry/standby behavior. Design only; no fix or new hardware test yet.
+
+Owner approved M6; it is now merged into main with the new fuel
 panel, persistent totals/coverage, local reset and reversible calibration.
 Build with make build-dashboard; simulator starts with --source=sim. See
 FUEL_COMPUTER.md for exact model assumptions, defaults and storage behavior.
@@ -47,7 +52,8 @@ For an agreed parked experimental LIVE run use --fuel-allow-unverified-iat and
 accuracy; default running-engine LIVE speed-density stays unavailable without
 that opt-in. No actual vehicle access was performed during implementation.
 
-Run the new M4 dashboard in a separately confirmed parked vehicle session:
+The owner completed a first combined LIVE run after merging PR #3. For a
+separately confirmed follow-up parked vehicle session, the M4 command is:
 `make build-dashboard`, then
 `./bin/dashboard --source=elm327 --transport=ble --ble-name=IOS-Vlink --retries=0`.
 Open http://127.0.0.1:8080. Do not run a recorder/other OBD client concurrently.
@@ -55,7 +61,8 @@ The owner approved the design and implementation; no new hardware connection
 was made in this implementation session. Follow NEXT_CONNECTION.md for current
 engine/ignition confirmation, 60s baseline, two browsers, timing/freshness,
 controlled disconnect/recovery and Ctrl+C evidence. Change ignition only in an
-explicitly agreed scenario. Physical M4, Android and endurance remain pending.
+explicitly agreed scenario. Detailed physical M4 recovery/timing acceptance,
+Android and endurance remain pending.
 
 The four instruments use independent freshness (RPM/speed 3s, coolant 35s,
 ATRV 130s), plus global 3s silence. Terminal adapter failure leaves HTTP running
@@ -81,8 +88,8 @@ terminals. Old recordings are not presented as measured fuel consumption.
 - M3 follow-up — native Go BLE transport, private export, baseline physically passed.
 - M3 discovery follow-up — native Go supported scan physically passed; 18 data PIDs.
 - M3 trip-recorder follow-up — offline-tested, then owner 60s/14m36s recordings analyzed; cleanup/IAT issues remain.
-- M4 — implementation/offline checks complete; live dashboard physical acceptance pending.
-- M6 — implementation/simulator acceptance complete; live accuracy/IAT/calibration and visual/device acceptance pending.
+- M4 — merged/offline checks complete; first LIVE run reported successful by owner; ignition-off recovery defective, detailed physical acceptance pending.
+- M6 — merged/simulator acceptance complete; first combined LIVE run reported successful; live accuracy/IAT/calibration and visual/device acceptance pending.
 
 ## Decisions and risks
 - Local-first, read-only diagnostics.
@@ -785,3 +792,28 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   then controlled coverage/reconnect/shutdown tests and independent full-to-full
   calibration only over a valid matching interval. Android and visual checks
   remain pending. Ordinary vehicle operation must not depend on this dashboard.
+
+### 2026-10-28 — First LIVE feedback and proposed ECU standby fix
+
+- Owner reports the merged M4/M6 dashboard worked successfully on the car.
+  This is owner-reported functional evidence, not measured polling/latency,
+  fuel accuracy, IAT validity or endurance/reconnect acceptance. No new raw
+  readings/duration supplied. Fuel gauge second tick is not a measured volume.
+- Owner reports restart advice with adapter powered and ignition off, both
+  at startup and after switching ignition off. Inspected live Source/events,
+  continuous recorder, scan/PID error handling, session recovery and telemetry
+  health. Stream has a terminal total retry budget; capabilities/AT responses
+  can mark connected despite absent ECU, and framed NO DATA does not recover.
+- Created fix/ecu-standby from main 87f324e. Proposed sparse ECU standby and
+  separate adapter recovery, bounded retry bursts, unchanged finite Run/Record,
+  preserved prompt synchronization and fuel gap accounting. Alternatives and
+  acceptance are in the written spec. Await owner approval before code changes
+  as explicitly required by brainstorming. Self-review checked scope, state
+  transitions, retries=0 semantics, safe recovery and hardware claims.
+- Commands: git status --short --branch; targeted source/document inspection;
+  git switch -c fix/ecu-standby (sandbox blocked Git ref creation, approved
+  escalation succeeded). .codex/START_HERE.md remains absent.
+- Documentation only: git diff --check; no Go/Node tests rerun and no vehicle
+  accessed. test.py/test2.py, private recordings and fuel state untouched.
+- Next: owner review, implementation plan and failing regressions, then code,
+  offline checks and separately agreed parked ignition-cycle acceptance.
