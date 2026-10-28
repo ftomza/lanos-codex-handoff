@@ -44,8 +44,10 @@ stability.
 Owner approved merging fix/ecu-standby into main. The merged tree passed fresh
 offline checks. Follow NEXT_CONNECTION.md for a separately agreed parked ignition
 cycle test; no physical vehicle was accessed for this fix.
-M6.1 requirements are committed in PLAN.md (1471a63). Continue design/work in
-feat/fuel-analytics in the current repository folder, based on the combined main.
+M6.1 requirements are committed in PLAN.md (1471a63), ECU standby merged/pushed
+as 7cc6aa8. The proposed M6.1 design is ready for owner review in
+docs/superpowers/specs/2026-10-28-fuel-analytics-design.md on feat/fuel-analytics
+in the current repository folder. No M6.1 implementation yet.
 
 Owner approved M6; it is now merged into main with the new fuel
 panel, persistent totals/coverage, local reset and reversible calibration.
@@ -900,3 +902,27 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   not independently measured liters or a validation of IAT/VE/consumption.
 - Next: advance feat/fuel-analytics to this main in the current folder;
   prepare the M6.1 recording/analysis/UI design before implementation.
+
+### 2026-10-28 — M6.1 design on combined main
+
+- Advanced feat/fuel-analytics to main 7cc6aa8 in the existing working folder;
+  no additional worktree. main now contains both M6.1 requirements and the
+  ECU standby fix, including fresh merged-tree verification above.
+- Read M6.1/PROJECT/STATUS/FUEL_COMPUTER and inspected Source, existing PID
+  decoders/schedule, estimator/accounting/API and UI. Existing Stream already
+  reads throttle/trims/O2; exposing those responses needs no new ECU commands.
+- Compared integrated coherent recording with an external SSE recorder;
+  proposed integrated opt-in JSONL, bounded rotation/queue, separate history
+  state/lock, shared CLI/HTTP analysis, additive input quality/intermediates,
+  IAT heuristics and a saved-history dashboard page. Existing fuel state v1,
+  formulas, opt-in behavior, dependency versions and ECU schedule remain intact.
+- Written spec: docs/superpowers/specs/2026-10-28-fuel-analytics-design.md.
+  Inline self-review checked retention/partial history, process time boundaries,
+  calibration/reset jumps, source separation, timestamps and cold-start evidence.
+  Limited recording intervals to <=2s to fit the existing 3s accounting bound.
+- Design-only changes: git diff --check. No new M6.1 tests or implementation;
+  the successful Go/race/lint/browser/build checks above apply to merged main.
+  No vehicle queries or access to owner scripts/private state/recordings.
+- Await owner approval of the concrete written design as required by
+  brainstorming; then write implementation plan and execute regressions/code
+  in this same feature branch and workspace.
