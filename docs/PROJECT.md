@@ -34,4 +34,15 @@ supply; sim remains the default. Run `make build-dashboard`, then
 One adapter stream serves all browsers, with capability gating, independent
 signal TTLs, bounded retries and no simulated fallback. No dependency changes.
 Offline tests passed; new physical dashboard acceptance and Android remain
-pending. This does not implement the M6 fuel computer. See NEXT_CONNECTION.md.
+pending. M6 is now implemented separately as documented below. See NEXT_CONNECTION.md.
+
+## Fuel computer implementation (2026-10-28)
+
+M6 adds simulator-tested estimates, persistent source-specific trip totals,
+coverage, explicit local reset and reversible full-to-full calibration to the
+existing dashboard. Direct/MAF/speed-density strategies remain behind a common
+interface; this Lanos currently supports only the inputs for an experimental
+speed-density estimate. Live unverified IAT requires explicit opt-in. No silent
+temperature replacement, fuel-cut guess or ECU writes. See FUEL_COMPUTER.md.
+Offline acceptance does not establish real fuel accuracy, sensor validity or
+Android/browser layout; physical tests remain pending.

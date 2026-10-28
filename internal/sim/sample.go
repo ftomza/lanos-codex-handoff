@@ -13,7 +13,8 @@ func Sample(start, now time.Time) telemetry.Snapshot {
 	elapsed := max(0, now.Sub(start).Seconds())
 	phase := math.Mod(elapsed, 60)
 	s := telemetry.Snapshot{
-		Source: telemetry.Simulator, Health: telemetry.Connected,
+		Generation: uint64((elapsed+6)/60) + 1,
+		Source:     telemetry.Simulator, Health: telemetry.Connected,
 		CapturedAt: now.UTC(), ReceivedAt: now.UTC(),
 		Message: "simulated driving cycle; no vehicle connected",
 	}
@@ -39,5 +40,25 @@ func Sample(start, now time.Time) telemetry.Snapshot {
 		voltage := 14.1 + 0.12*math.Sin(phase/3)
 		s.VoltageV = &voltage
 	}
+	addFuelSignals(&s, now, speed)
 	return s
+}
+
+// Synthetic inputs belong only to simulator snapshots.
+func addFuelSignals(s *telemetry.Snapshot, now time.Time, speed float64) {
+	s.Signals = make(map[string]telemetry.Signal, 6)
+	for _, item := range []struct {
+		key, unit string
+		value     *float64
+	}{
+		{"rpm", "rpm", s.RPM}, {"speed_kmh", "km/h", s.SpeedKMH},
+		{"coolant_c", "degC", s.CoolantC}, {"voltage_v", "V", s.VoltageV},
+		{"map_kpa", "kPa", new(32 + speed*.55)}, {"iat_c", "degC", new(20.0)},
+	} {
+		status := "available"
+		if item.value == nil {
+			status = "temporarily_unavailable"
+		}
+		s.Signals[item.key] = telemetry.Signal{Value: item.value, Unit: item.unit, Source: "simulator", Support: "supported", Status: status, CapturedAt: now.UTC(), ReceivedAt: now.UTC(), StaleAfterMS: 3000}
+	}
 }

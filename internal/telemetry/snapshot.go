@@ -19,6 +19,7 @@ const (
 // Snapshot is immutable after publication. Nil means unavailable, never zero.
 // Measurement units are part of the transport contract for future native clients.
 type Snapshot struct {
+	Generation   uint64            `json:"generation,omitzero"`
 	Diagnostics  Diagnostics       `json:"diagnostics,omitzero"`
 	Signals      map[string]Signal `json:"signals,omitempty"`
 	Transport    string            `json:"transport,omitzero"`

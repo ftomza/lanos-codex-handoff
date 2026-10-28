@@ -164,7 +164,7 @@ func (s *recording) attempt(ctx context.Context) error {
 }
 
 func (s *recording) poll(ctx context.Context) error {
-	schedule := newPollSchedule(s.report, s.r.now())
+	schedule := newPollSchedule(s.report, s.r.now(), s.duration == 0)
 	for {
 		if err := s.check(ctx); err != nil {
 			return err

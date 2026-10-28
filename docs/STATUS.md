@@ -3,7 +3,9 @@
 ## Current state
 M0–M3 complete. M4 live dashboard is implemented and offline-verified in
 feat/live-dashboard; physical dashboard acceptance is still pending. M6 fuel
-computer is unimplemented. Default dashboard source remains sim; explicit
+computer is now implemented/offline-tested in feat/fuel-computer; physical
+fuel accuracy and new visual/device acceptance remain pending.
+Default dashboard source remains sim; explicit
 --source=elm327 selects native BLE or serial without simulated fallback.
 The Go read-only obdprobe provides macOS native BLE and serial, shared ELM framing/recovery,
 capability discovery, PID/DTC decoding, bounded reconnect and private JSON export.
@@ -19,7 +21,8 @@ scheduled capability-gated polling and bounded recovery. Owner logs on
 2026-10-28 verify a 60s parked recording and a 14m36s drive on AI-92, with one
 segment and no gap/recovery events. The longer recording ends failed after
 engine-off/Ctrl+C, with the cleanup cause absent from its summary. IAT is
-unverified (-40°C then constant +20°C); fuel consumption is not calculated.
+unverified (-40°C then constant +20°C); no validated real consumption was
+calculated from these historical recordings.
 Earlier Go SPP attempts received no ATZ response; their root cause is unresolved.
 
 Owner correction: the device is **Vgate iCar Pro BLE 4.0 Dual**. Classic SPP
@@ -35,14 +38,14 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
-Owner requested M6 fuel computer plus dashboard integration after M4. Created
-feat/fuel-computer from c5c674e. Concrete proposed spec:
-docs/superpowers/specs/2026-10-28-fuel-computer-design.md.
-Design review is pending before implementation under the brainstorming skill.
-Recommended scope: simulator acceptance, three strategies, persistent resettable
-trip/coverage, reversible calibration, and explicit experimental live IAT opt-in.
-No fuel implementation or new hardware query yet; previous M4 parked acceptance
-below remains separate and pending.
+Owner approved M6; it is now implemented on feat/fuel-computer with the new fuel
+panel, persistent totals/coverage, local reset and reversible calibration.
+Build with make build-dashboard; simulator starts with --source=sim. See
+FUEL_COMPUTER.md for exact model assumptions, defaults and storage behavior.
+For an agreed parked experimental LIVE run use --fuel-allow-unverified-iat and
+--fuel-state=data/fuel/live-experimental.json. This does not validate IAT or fuel
+accuracy; default running-engine LIVE speed-density stays unavailable without
+that opt-in. No actual vehicle access was performed during implementation.
 
 Run the new M4 dashboard in a separately confirmed parked vehicle session:
 `make build-dashboard`, then
@@ -65,9 +68,10 @@ The two owner recordings remain analyzed in capabilities.md and the private
 trip-analysis-20261028-001.json. Validate IAT (-40°C then constant +20°C) before
 fuel estimation; do not replace it with an assumed temperature. OBD distance
 9.49054 km versus rounded owner odometer 167→177 km does not justify calibration.
-M6 still needs validated inputs, an estimator and independent measured refueling
-liters. ATRV is adapter supply, not a direct generator measurement; verify its
-accuracy independently at battery terminals. No fuel figures are added here.
+M6 now has tested estimators/accounting but still needs validated live inputs
+and independent measured full-to-full refueling liters. ATRV is adapter supply,
+not a direct generator measurement; verify its accuracy independently at battery
+terminals. Old recordings are not presented as measured fuel consumption.
 
 ## Completed milestones
 - M0 — module, package boundaries, commands, README and Makefile.
@@ -78,6 +82,7 @@ accuracy independently at battery terminals. No fuel figures are added here.
 - M3 discovery follow-up — native Go supported scan physically passed; 18 data PIDs.
 - M3 trip-recorder follow-up — offline-tested, then owner 60s/14m36s recordings analyzed; cleanup/IAT issues remain.
 - M4 — implementation/offline checks complete; live dashboard physical acceptance pending.
+- M6 — implementation/simulator acceptance complete; live accuracy/IAT/calibration and visual/device acceptance pending.
 
 ## Decisions and risks
 - Local-first, read-only diagnostics.
@@ -721,3 +726,62 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   No implementation or dependency change. Documentation-only verification:
   git diff --check; Go tests not rerun. User test.py/test2.py and private logs
   remain untouched. M6 remains unimplemented; M4 physical acceptance pending.
+
+### 2026-10-28 — M6 fuel computer implementation after owner approval
+
+- Owner approved the written spec. Implemented inline in feat/fuel-computer,
+  based on c5c674e, following docs/superpowers/plans/2026-10-28-fuel-computer.md.
+  No dependency/Go-version change, new hardware access or ECU writes/clears.
+- Added internal/fuel with direct ECU, MAF and speed-density strategies, explicit
+  gasoline/VE assumptions and input bounds. Availability/provenance/confidence
+  are explicit. Current Lanos has no advertised MAF/fuel-rate PID, so neither
+  is requested. Live speed-density requires unverified-IAT opt-in; -40 C and
+  other out-of-model values stay unavailable, no assumed temperature or DFCO.
+- Extended live signal metadata with MAP/IAT/MAF/fuel rate and reconnect generation.
+  Extended simulator with labelled synthetic inputs. Continuous Stream alone
+  adds supported MAF/flow to core; --record keeps its original schedule/schema.
+- One shared computer uses source updates plus a 250ms monotonic tick. Fresh
+  endpoint trapezoids, <=3s dt, generation/time checks and independent expiry
+  prevent extrapolation across gaps. Duplicate timestamps cannot double-count.
+  Separate raw fuel, distance and jointly covered totals prevent dilution of
+  average by kilometers with no fuel. Average available after 0.1 covered km.
+- Source-specific private versioned state uses exclusive sidecar lock, strict
+  schema/numeric/config checks, 0600 temp + fsync + atomic rename and <=5s
+  checkpoint plus normal close/mutations. Startup errors precede source Start.
+  Restart retains totals, drops anchors and marks unobserved coverage unknown.
+  Corruption/unknown lock is not silently removed/reset. Runtime write failures
+  remain visible and failed mutations preserve prior committed state.
+- Local same-origin JSON reset/calibration endpoints validate bounded body and
+  revision. Calibration requires exact full-to-full confirmation, >=10 covered
+  km and complete interval, factor 0.25..4. Raw totals are unchanged; undo/default
+  supported. A regression reproduced factor drift while polling continued
+  between preview/apply; a matching preview token now fixes the displayed factor.
+- Added dashboard fuel panel: L/h below threshold or without speed, L/100km above
+  5km/h by default, covered average, liters/km since reset, model/IAT/coverage/
+  persistence notes, reset confirmation and calibration preview/apply/undo.
+  Instantaneous values expire independently, historical totals stay labelled.
+  Added compact landscape CSS and narrow-screen grid; native browser/device
+  visual validation has not been performed and remains pending.
+- TDD regressions included stale inputs, numeric boundaries,
+  gaps/restarts/generation/model changes, durable/reversible local controls,
+  HTTP origin/JSON/revision failures, preserved recorder scheduling, UNKNOWN
+  source labels and 404 on newly embedded JS modules. Corrected and verified.
+- Passed: go test ./... -count=1; go test -race ./...; make lint; make test-web
+  (22 tests); make build-dashboard; make build-obdprobe; Linux cross-build;
+  go vet -tags=nativeble ./cmd/obdprobe-ble; CLI --help; changed JS syntax checks;
+  git diff --check. Cache restrictions required approved execution outside sandbox;
+  goimports remains unavailable, used gofmt and manual import grouping review.
+- Built simulator smoke verified GET/static fuel modules, real computed flow and
+  L/100km transition, positive liters/km, two SSE clients, revisioned reset,
+  cross-origin/stale revision/short-calibration rejection, 0600 persistence,
+  restart with unchanged reset time + incomplete marker, and SIGINT exit 0 with
+  streams open. A separate DOM-stub HTML/app runtime smoke exercised numeric
+  rendering and reset/calibration dialogs with token submission; not visual
+  browser/device acceptance. All temporary state was isolated from owner data.
+- Updated README/PROJECT/PLAN/FUEL_COMPUTER/NEXT_CONNECTION and approved spec/plan.
+  .codex/START_HERE.md remains absent. Owner scripts/private recordings and fuel
+  state are excluded. No real fuel-accuracy or complete-trip claim from old logs.
+- Next: separately confirmed parked LIVE/dashboard baseline, verify IAT source,
+  then controlled coverage/reconnect/shutdown tests and independent full-to-full
+  calibration only over a valid matching interval. Android and visual checks
+  remain pending. Ordinary vehicle operation must not depend on this dashboard.

@@ -87,7 +87,7 @@ func TestLiveServerSurvivesTerminalSourceFailure(t *testing.T) {
 			return &terminalSource{started: started}, nil
 		},
 	}
-	go func() { done <- runWith(ctx, []string{"--source=elm327"}, &bytes.Buffer{}, deps) }()
+	go func() { done <- runWith(ctx, []string{"--source=elm327", "--fuel=off"}, &bytes.Buffer{}, deps) }()
 	listener := <-bound
 	<-started
 	requestCtx, stop := context.WithTimeout(t.Context(), 2*time.Second)

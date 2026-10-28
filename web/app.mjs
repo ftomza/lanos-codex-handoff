@@ -1,4 +1,6 @@
 import { viewState, presentation } from './model.mjs';
+import { fuelView } from './fuel.mjs';
+import { bindFuelControls } from './fuel-controls.mjs';
 import { Feed } from './feed.mjs';
 
 const elements = Object.fromEntries([...document.querySelectorAll('[id]')].map(el => [el.id, el]));
@@ -33,7 +35,12 @@ function render() {
     'coolant-note': 'coolantNote', 'voltage-note': 'voltageNote' })) elements[id].textContent = text[key];
   elements['speed-arc'].style.strokeDashoffset = String(100 - Math.min(160, Math.max(0, state.values.speed_kmh ?? 0)) / 160 * 100);
   bars.forEach((bar, i) => bar.classList.toggle('active', i < (state.values.rpm ?? 0) / 6000 * bars.length));
-  showTime('captured', event?.captured_at);
+  const fuel = fuelView(event, performance.now() - eventAt, transport.status);
+  for (const key of ['instant', 'unit', 'average', 'liters', 'distance', 'model', 'note']) elements['fuel-' + key].textContent = fuel[key];
+  elements['fuel-reset'].disabled = !event?.fuel;
+  elements['fuel-calibrate'].disabled = !event?.fuel;
+  elements['fuel-undo'].disabled = event?.fuel?.previous_factor == null;
+  showTime('captured' , event?.captured_at);
   showTime('received', event?.received_at);
   elements.warnings.hidden = state.warnings.length === 0;
   elements.warnings.textContent = state.warnings.join(' · ');
@@ -44,6 +51,7 @@ const feed = new Feed({
   onEvent: data => { event = data; eventAt = performance.now(); },
   onState: state => { transport = state; render(); },
 });
+bindFuelControls(elements, () => event);
 elements.reconnect.addEventListener('click', () => feed.start());
 window.addEventListener('pagehide', () => feed.stop());
 window.addEventListener('pageshow', e => { if (e.persisted) feed.start(); });

@@ -188,3 +188,31 @@ func TestLiveDiagnosticCountersSurviveSegmentReset(t *testing.T) {
 		t.Fatalf("lost bounded diagnostic counters: %+v", got)
 	}
 }
+
+func TestFuelSignalsAndGenerationAreIndependent(t *testing.T) {
+	t.Parallel()
+	s := newSource(nil, "ble")
+	now := time.Now()
+	if err := s.consume(record.Event{Type: "segment_start"}); err != nil {
+		t.Fatal(err)
+	}
+	if s.latest.Generation != 1 {
+		t.Fatal("missing segment generation")
+	}
+	for _, code := range []string{"010B", "010F", "0110", "015E"} {
+		if err := s.consume(record.Event{Type: "command", Data: probe.RecordingCommand{CommandLog: probe.CommandLog{Command: code, CompletedAt: now, Status: elm327.OK}, Result: &probe.RecordingReading{Status: "available", Measurement: elm327.Measurement{Value: new(20.0)}}}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, key := range []string{"map_kpa", "iat_c", "maf_g_s", "fuel_rate_lph"} {
+		if s.latest.Signals[key].Value == nil {
+			t.Fatalf("lost fuel input %s", key)
+		}
+	}
+	if err := s.consume(record.Event{Type: "segment_start"}); err != nil {
+		t.Fatal(err)
+	}
+	if s.latest.Generation != 2 || s.latest.Signals["map_kpa"].Value != nil {
+		t.Fatal("fuel inputs crossed reconnect")
+	}
+}

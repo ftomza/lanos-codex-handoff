@@ -6,3 +6,5 @@
 /diagnostics/
 .env
 .env.*
+
+/data/fuel/

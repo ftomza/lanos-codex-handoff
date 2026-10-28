@@ -35,9 +35,13 @@ type pollSchedule struct {
 	items []scheduledItem
 }
 
-func newPollSchedule(report Report, now time.Time) *pollSchedule {
-	s := &pollSchedule{core: make([]byte, 0, 3), items: supportingItems()}
-	for _, pid := range []byte{0x0C, 0x0B, 0x0D} {
+func newPollSchedule(report Report, now time.Time, includeFuel bool) *pollSchedule {
+	s := &pollSchedule{core: make([]byte, 0, 5), items: supportingItems()}
+	pids := []byte{0x0C, 0x0B, 0x0D}
+	if includeFuel {
+		pids = append(pids, 0x10, 0x5E)
+	}
+	for _, pid := range pids {
 		if report.Capabilities[int(pid)-1].Support == "supported" {
 			s.core = append(s.core, pid)
 		}

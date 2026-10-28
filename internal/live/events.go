@@ -15,6 +15,10 @@ type signalDef struct {
 }
 
 var definitions = []signalDef{
+	{"map_kpa", "010B", "kPa", "ecu_mode01", 3 * time.Second},
+	{"iat_c", "010F", "degC", "ecu_mode01", 20 * time.Second},
+	{"maf_g_s", "0110", "g/s", "ecu_mode01", 3 * time.Second},
+	{"fuel_rate_lph", "015E", "L/h", "ecu_mode01", 3 * time.Second},
 	{"rpm", "010C", "rpm", "ecu_mode01", 3 * time.Second},
 	{"speed_kmh", "010D", "km/h", "ecu_mode01", 3 * time.Second},
 	{"coolant_c", "0105", "degC", "ecu_mode01", 35 * time.Second},
@@ -38,6 +42,7 @@ func (s *Source) consume(event record.Event) error {
 	s.latest = s.latest.Clone()
 	switch event.Type {
 	case "segment_start":
+		s.latest.Generation++
 		s.clear(telemetry.Connecting, "Подключение к ЭБУ", true)
 	case "gap":
 		s.latest.Diagnostics.Gaps++

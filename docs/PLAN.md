@@ -55,7 +55,7 @@ HTTP/SSE, browser-logic and build checks passed. **Physical acceptance remains
 pending**: actual polling/latency, forced disconnect/stale/reconnect, longer
 endurance and Android tests are not inferred from existing recorder sessions.
 Build/launch and the next parked test are documented in NEXT_CONNECTION.md.
-M6 fuel estimation remains separate and unimplemented.
+M6 fuel estimation is implemented below, with separate physical accuracy acceptance.
 
 ## M5 — Android path
 - First validate browser-based UI on Teclast P85 over LAN; assess fullscreen/kiosk, sleep/wake, brightness, thermal/power behavior.
@@ -80,6 +80,15 @@ Acceptance: documented architecture decision and Android test checklist.
 - Support user calibration from measured full-to-full refueling, with validation and a reversible calibration factor; avoid claiming fuel figures are exact.
 - Provide deterministic simulator fixtures and unit/integration tests for idle, motion, reset, persistence, missing data, disconnects, calibration and zero-speed edge cases.
 Acceptance: fuel computer works end-to-end in simulator with persisted resettable trip totals and transparent estimated/unknown states. Live accuracy and ECU PID support remain pending hardware verification. Implement after M3/M4 as appropriate; no ECU writes.
+
+M6 implementation completed offline on 2026-10-28 in feat/fuel-computer:
+three strategies, explicit assumptions/live IAT opt-in, bounded monotonic trip
+accounting and matched-interval average, source-specific atomic persistence,
+coverage, revisioned reset and reversible full-to-full calibration, HTTP/SSE and
+fuel dashboard panel. Injector model remains unavailable without verified data.
+Simulator HTTP/SSE/reset/persistence/restart passed; full verification is recorded
+in STATUS.md. Real IAT/VE/consumption accuracy, new browser visual acceptance and
+Android remain pending. See FUEL_COMPUTER.md and NEXT_CONNECTION.md.
 
 ## Scope decision — OBD-only first (2026-10-21)
 - Current scope is read-only data obtainable through Vgate iCar Pro BLE 4.0 Dual and the vehicle ECU (model corrected by the owner on 2026-10-24); do not implement ESP32, vehicle wiring taps, auxiliary sensors, or body-signal hardware.

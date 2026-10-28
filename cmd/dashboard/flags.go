@@ -9,10 +9,14 @@ import (
 	"time"
 	"unicode"
 
+	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/fuel"
 	"gitlab.ozon.ru/ftomza/lanos-dashboard/internal/probe"
 )
 
 type dashboardOptions struct {
+	fuelMode, fuelState  string
+	fuelReset            bool
+	fuelConfig           fuel.Config
 	source, listen       string
 	interval, staleAfter time.Duration
 	probe                probe.Config
@@ -38,6 +42,7 @@ func parseDashboardFlags(args []string, out io.Writer) (dashboardOptions, error)
 	f.DurationVar(&c.RecoveryTimeout, "recovery-timeout", 30*time.Second, "read-only wait for a delayed prompt")
 	f.IntVar(&c.Retries, "retries", 2, "additional attempts over the entire live run (0..5)")
 	c.AdapterModel = probe.KnownAdapterModel
+	registerFuelFlags(f, &o)
 	if err := f.Parse(args); err != nil {
 		return o, err
 	}
@@ -47,6 +52,9 @@ func parseDashboardFlags(args []string, out io.Writer) (dashboardOptions, error)
 	explicit := make(map[string]bool, f.NFlag())
 	f.Visit(func(flag *flag.Flag) { explicit[flag.Name] = true })
 	if err := validateDashboard(&o, explicit); err != nil {
+		return o, err
+	}
+	if err := validateFuelFlags(&o); err != nil {
 		return o, err
 	}
 	return o, nil

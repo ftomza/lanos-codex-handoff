@@ -2,7 +2,9 @@
 
 Local, read-only Chevrolet Lanos dashboard and diagnostic probe. The dashboard
 supports explicit **live BLE/serial telemetry** and a separate default simulator.
-M4 implementation is offline-tested; physical dashboard acceptance is pending.
+M4 and M6 implementation are offline-tested; physical dashboard and fuel-accuracy
+acceptance are pending. The fuel computer adds local persistent trip estimates,
+coverage, reset and reversible calibration.
 Issue #1 records successful owner Vgate/KWP2000 tests over SPP and BLE, including
 nonzero engine RPM over BLE. Our Go probe now also passed a physical native BLE
 baseline on this MacBook/Vgate/Lanos: RPM, coolant, speed, ATRV, MIL and stored
@@ -107,7 +109,8 @@ supply at the OBD connector, not generator terminals or ECU voltage.
 
 The shared recorder schedule targets one RPM/MAP/speed round per second and one
 oldest-due supporting item, without catch-up bursts. Actual rate depends on ECU
-latency; only four instrument values are exposed. This adds no fuel calculation.
+latency; the existing instruments remain. M6 additionally uses supported fuel-model
+inputs; see the fuel computer section below.
 Default `--retries=2` gives two additional attempts **over the entire live run**
 (maximum 5), with bounded exponential backoff. Timeout/reopen requires the pending
 prompt before reinitialization. Terminal failure keeps HTTP available as
@@ -116,6 +119,32 @@ retries SSE/server access; restart the dashboard process for a new adapter budge
 Ctrl+C cancels polling, closes/reaps the helper and reports actual cleanup errors.
 No in-memory command history or automatic telemetry file is created in live mode;
 use the separate recorder for raw evidence, after stopping the dashboard.
+
+## Fuel computer (M6)
+
+Fuel is enabled by default in simulator and live mode. It shows instantaneous
+L/h or L/100 km, covered-interval average, estimated liters and since-reset km.
+Totals persist separately in ignored `data/fuel/{sim,live}.json` (0600); use
+`--fuel-state` for another path and `--fuel=off` to disable the module. Reset and
+reversible full-to-full calibration are explicit dashboard controls.
+
+Our Lanos has no advertised MAF/direct fuel flow and its IAT is unverified.
+Default live speed-density is unavailable while running. After confirming a
+parked session, explicitly opt into a low-confidence estimate:
+
+```sh
+./bin/dashboard --source=elm327 --transport=ble --ble-name=IOS-Vlink \
+  --fuel-allow-unverified-iat --fuel-state=data/fuel/live-experimental.json
+```
+
+No assumed temperature replaces ECU bytes; -40 C and other values outside the
+model range are unavailable. Nominal VE/AFR/gasoline density are assumptions.
+Gaps never count as zero fuel, unknown travel cannot dilute the covered average,
+and restart preserves totals with an incomplete-coverage flag. State/config
+errors fail before hardware opens. Checkpoint interval is 5s; actual write errors
+are visible. `--fuel-reset-state` explicitly starts a new trip/factor 1; do not
+leave it in ordinary startup. Read [FUEL_COMPUTER.md](docs/FUEL_COMPUTER.md) for
+models, flags, state/lock recovery, coverage, API and calibration requirements.
 
 ## HTTP contract
 
@@ -130,6 +159,9 @@ Both API responses contain nullable `rpm`, `speed_kmh`, `coolant_c`, `voltage_v`
 or `disconnected`; `connected` describes freshness, not whether a car is present.
 The source identifies `simulator` or `live` independently. A missing capture uses Go's
 zero timestamp, shown as unavailable in the UI.
+
+When enabled, `fuel` contains the derived view and persistent trip metadata.
+Same-origin JSON POST fuel controls change local state only; see FUEL_COMPUTER.md.
 
 Live responses additionally contain `transport`, `source_detail`, adapter ATI
 identity, protocol, and `signals` keyed by the four flat field names. Each signal
@@ -255,6 +287,7 @@ remain unresolved; longer endurance/reconnect are untested. These recorder sessi
 - `internal/telemetry`: source contract and domain snapshots/freshness.
 - `internal/sim`: deterministic simulator implementing the source contract.
 - `internal/live`: native read-only stream adapter, independent freshness and bounded state.
+- `internal/fuel`: estimates, monotonic trip/coverage, local state and calibration.
 - `internal/server`: HTTP transport and telemetry distribution.
 - `web`: embedded HTML, CSS, JavaScript; no third-party assets.
 - `internal/elm327`: read-only allowlist, framing, recovery, parsers and decoders.

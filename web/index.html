@@ -38,6 +38,18 @@
       <article class="card small-card"><div><h2>Охлаждающая жидкость</h2><p id="coolant-note">Нет данных</p></div><div class="small-reading"><span id="coolant">—</span><span class="unit">°C</span></div></article>
       <article class="card small-card"><div><h2>Напряжение адаптера</h2><p id="voltage-note">Нет данных</p></div><div class="small-reading"><span id="voltage">—</span><span class="unit">В</span></div></article>
     </section>
+    <section id="fuel-panel" class="card fuel-panel" aria-label="Топливный компьютер">
+      <div class="fuel-heading"><div><h2>Топливный компьютер</h2><p id="fuel-model">Ожидание источника</p></div><div class="fuel-actions"><button id="fuel-reset" type="button" disabled>Сброс</button><button id="fuel-calibrate" type="button" disabled>Калибровка</button></div></div>
+      <div class="fuel-metrics">
+        <div><span>Мгновенный</span><strong id="fuel-instant">—</strong><small id="fuel-unit">л/ч</small></div>
+        <div><span>Средний по учтённым участкам</span><strong id="fuel-average">—</strong><small>л/100 км</small></div>
+        <div><span>Топливо после сброса, оценка</span><strong id="fuel-liters">—</strong><small>л</small></div>
+        <div><span>Пробег после сброса</span><strong id="fuel-distance">—</strong><small>км</small></div>
+      </div>
+      <p id="fuel-note" class="fuel-note">Нет данных</p><p id="fuel-error" class="warnings" role="alert" hidden></p>
+    </section>
+    <dialog id="fuel-reset-dialog"><h2>Новый отсчёт поездки</h2><p>Обнулить литры, пробег и покрытие после сброса? Это изменит только локальную поездку.</p><label><input id="fuel-reset-factor" type="checkbox">Также вернуть поправку расхода к 1</label><p data-fuel-error class="warnings" role="alert" hidden></p><div class="dialog-actions"><button type="button" data-close>Отмена</button><button id="fuel-reset-confirm" type="button">Обнулить поездку</button></div></dialog>
+    <dialog id="fuel-calibration-dialog"><h2>Калибровка полного бака</h2><p>Нужны совпадающие границы от полного до полного, не менее 10 учтённых км и полное покрытие. Марка АИ-92 и пробег сами по себе не задают расход.</p><label>Залито бензина, л<input id="fuel-measured" type="number" min="0.01" max="1000" step="0.01" inputmode="decimal"></label><label><input id="fuel-full-to-full" type="checkbox">Это замер от полного до полного за текущий отсчёт</label><p id="fuel-preview-result" role="status"></p><p data-fuel-error class="warnings" role="alert" hidden></p><div class="dialog-actions"><button type="button" data-close>Закрыть</button><button id="fuel-preview" type="button">Рассчитать поправку</button><button id="fuel-apply" type="button" disabled>Применить</button><button id="fuel-undo" type="button">Отменить поправку</button><button id="fuel-default" type="button">Вернуть ×1</button></div></dialog>
     <section id="health-panel" class="health-panel" data-health="connecting" aria-label="Состояние данных">
       <div class="health-copy"><span id="health-title" class="health-title" role="status">Подключение к источнику</span><p id="health-detail">Ожидаем первые показания источника.</p></div>
       <button id="reconnect" type="button" hidden>Повторить подключение</button>

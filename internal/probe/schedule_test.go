@@ -15,7 +15,7 @@ func TestSupportingScheduleUsesOldestDueAndCompletion(t *testing.T) {
 		report.Capabilities[int(pid)-1].CapturedAt = now
 	}
 	report.AdapterVoltage.CapturedAt = now
-	s := newPollSchedule(report, now)
+	s := newPollSchedule(report, now, false)
 	if c := s.support(now); c != "" {
 		t.Fatalf("polled early: %s", c)
 	}
@@ -48,5 +48,32 @@ func TestRequiredInputsIncludeAdvertisedButUnavailableReadings(t *testing.T) {
 	missing := missingCore(report)
 	if len(missing) != 1 || missing[0] != "0B" {
 		t.Fatalf("advertised support presented as a successful measurement: %v", missing)
+	}
+}
+
+func TestAdvertisedFuelInputsJoinCoreSchedule(t *testing.T) {
+	t.Parallel()
+	var report Report
+	resetReport(&report, Config{}, 1)
+	for _, pid := range []byte{0x10, 0x5E} {
+		report.Capabilities[int(pid)-1].Support = "supported"
+	}
+	got := newPollSchedule(report, time.Now(), true)
+	if len(got.core) != 2 || got.core[0] != 0x10 || got.core[1] != 0x5E {
+		t.Fatalf("advertised fuel inputs not scheduled: %+v", got.core)
+	}
+}
+
+func TestRecorderKeepsOriginalCoreScheduleWhenMAFIsAdvertised(t *testing.T) {
+	t.Parallel()
+	var report Report
+	resetReport(&report, Config{}, 1)
+	for _, pid := range []byte{0x0C, 0x0B, 0x0D, 0x10, 0x5E} {
+		report.Capabilities[int(pid)-1].Support = "supported"
+	}
+	// Finite record metadata promises the original three core PIDs.
+	got := newPollSchedule(report, time.Now(), false)
+	if len(got.core) != 3 {
+		t.Fatalf("recorder core behavior changed: %v", got.core)
 	}
 }

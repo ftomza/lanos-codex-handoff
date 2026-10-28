@@ -1,7 +1,7 @@
 # M6 fuel computer and dashboard
 
-Status: proposed for owner review, 2026-10-28. No implementation or new hardware
-session yet. Branch feat/fuel-computer, based on c5c674e (live dashboard).
+Status: owner approved on 2026-10-28; implementation/offline acceptance complete.
+No new physical hardware session; fuel accuracy and visual/device checks pending. Branch feat/fuel-computer, based on c5c674e (live dashboard).
 
 ## Outcome and boundaries
 
@@ -210,7 +210,8 @@ adjusted factor, plus unverified-IAT warning when opted in. No tank/range widget
 
 Local JSON POST endpoints implement reset, calibration preview/apply/undo/default.
 Mutations require same-origin requests, application/json, a small bounded body,
-strict field/number validation and expected state revision; reject cross-origin
+strict field/number validation and expected state revision; calibration apply also requires the matching preview
+token to retain the displayed factor while polling continues. Reject cross-origin
 or stale changes. No permissive CORS. UI submits only after explicit user action.
 Existing LAN deployment remains a trusted-local-network setup, not authenticated
 remote access. These endpoints never send an ECU command or restart hardware.

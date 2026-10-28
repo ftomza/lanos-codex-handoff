@@ -4,7 +4,7 @@ test:
 	go test ./...
 
 test-web:
-	node --test web/model.test.mjs web/feed.test.mjs
+	node --test web/model.test.mjs web/feed.test.mjs web/fuel.test.mjs
 
 vet:
 	go vet ./...
