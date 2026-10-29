@@ -10,6 +10,7 @@ import (
 )
 
 type Config struct {
+	ReadPending     bool          `json:"read_pending,omitzero"`
 	Transport       string        `json:"transport"`
 	BLEName         string        `json:"ble_name"`
 	BLEHelper       string        `json:"ble_helper,omitzero"`

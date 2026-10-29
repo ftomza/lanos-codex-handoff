@@ -40,20 +40,12 @@ func (r *Runner) scanReadings(ctx context.Context, s *elm327.Session, report *Re
 			return err
 		}
 	}
-	response, err = r.command(ctx, s, report, "03")
-	if err != nil {
+	if err := r.readDTC(ctx, s, report, "03", &report.StoredDTCs, elm327.DecodeDTC); err != nil {
 		return err
 	}
-	report.StoredDTCs.CapturedAt = r.now().UTC()
-	report.StoredDTCs.RawResponse = response.Raw
-	codes, err := elm327.DecodeDTC(response)
-	if err != nil {
-		report.StoredDTCs.Status = "temporarily_unavailable"
-		report.unavailable("stored DTC read unavailable: " + err.Error())
-		return nil
+	if r.config.ReadPending {
+		return r.readDTC(ctx, s, report, "07", report.PendingDTCs, elm327.DecodePendingDTC)
 	}
-	report.StoredDTCs.Status = "available"
-	report.StoredDTCs.Codes = codes
 	return nil
 }
 

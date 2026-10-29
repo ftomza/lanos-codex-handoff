@@ -99,7 +99,16 @@ func DecodeSupported(base byte, r Response) ([]byte, error) {
 // DecodeDTC decodes stored Mode 03 codes only, with no implication about pending
 // or permanent codes. Zero pairs are padding; malformed frames never mean empty.
 func DecodeDTC(r Response) ([]string, error) {
-	frames, err := payloads(r, []byte{0x43})
+	return decodeDTCResponse(r, 0x43)
+}
+
+// DecodePendingDTC decodes Mode 07 only; it never treats stored codes as pending.
+func DecodePendingDTC(r Response) ([]string, error) {
+	return decodeDTCResponse(r, 0x47)
+}
+
+func decodeDTCResponse(r Response, responseMode byte) ([]string, error) {
+	frames, err := payloads(r, []byte{responseMode})
 	if err != nil {
 		return nil, err
 	}

@@ -38,6 +38,7 @@ func parseFlags(args []string, stderr io.Writer) (options, error) {
 	flags.BoolVar(&o.record, "record", false, "record a private capability-gated trip JSONL stream")
 	flags.DurationVar(&o.duration, "duration", 4*time.Hour, "recording duration, >0 and <=24h; requires --record")
 	flags.BoolVar(&cfg.ScanSupported, "scan-supported", false, "discover continuation bitmaps and read advertised Mode 01 PIDs")
+	flags.BoolVar(&cfg.ReadPending, "read-pending", false, "finite probe only: additionally read pending DTCs with Mode 07; never clears codes")
 	flags.BoolVar(&o.list, "list-ports", false, "enumerate /dev/cu.* names without opening any port")
 	flags.BoolVar(&o.json, "json", false, "write one machine-readable JSON report to stdout")
 	flags.StringVar(&o.output, "output", "", "private report JSON or recording JSONL; default recording path: diagnostics/trip-*.jsonl; never overwrite")
@@ -50,6 +51,9 @@ func parseFlags(args []string, stderr io.Writer) (options, error) {
 	}
 	explicit := make(map[string]bool, flags.NFlag())
 	flags.Visit(func(f *flag.Flag) { explicit[f.Name] = true })
+	if cfg.ReadPending && (o.record || o.list) {
+		return o, fmt.Errorf("read-pending requires a finite diagnostic probe")
+	}
 	if o.record && (o.json || o.list || cfg.ScanSupported || o.duration <= 0 || o.duration > 24*time.Hour) {
 		return o, fmt.Errorf("record requires duration in (0,24h] and cannot combine with json, list-ports or scan-supported")
 	}

@@ -1,6 +1,10 @@
 # Session handoff / status
 
 ## Current state
+2026-10-29 Check Engine follow-up: owner reports steady light and smooth idle;
+physical Go BLE confirms MIL on but empty stored Mode 03 and pending Mode 07
+lists. Cause is unresolved. Finite --read-pending support is implemented on
+feat/pending-dtc (based on feat/fuel-analytics); no clearing occurred.
 M6.1 is implemented and offline-verified on `feat/fuel-analytics` in this same
 checkout: coherent fuel diagnostics/quality and IAT heuristics, bounded opt-in
 JSONL history, shared streaming analysis/CLI and a saved-history dashboard page.
@@ -1005,3 +1009,63 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
 - git diff --check passed; no changes to go.mod/go.sum, internal/probe,
   internal/elm327 or fuel state schema. Owner test.py/test2.py remain untracked
   and excluded. Delivery stays on feat/fuel-analytics; main is not modified.
+
+
+### 2026-10-29 — Parked running-engine Check Engine read, owner authorized
+
+- Owner reported a newly illuminated Check Engine, engine running and vehicle
+  stopped; clarified steady light and smooth engine operation. No other OBD
+  process/listener was found before opening the single BLE connection.
+- Ran existing built native Go probe, without changing application code:
+  ./bin/obdprobe --transport=ble --ble-name=IOS-Vlink --retries=0 --json
+  --output=diagnostics/check-engine-20261029-001.json
+- Completed at approximately 13:10 Europe/Moscow: status=complete, one attempt,
+  all 12 commands ok, no warnings, exit 0 and normal helper cleanup.
+  ELM327 v2.3, auto protocol A5; RPM 874.25, speed 0 km/h, coolant 94°C.
+  ATRV 13.1V is adapter supply, not a direct generator-terminal measurement.
+- MIL is ON: 0101 -> 41 01 80 07 E1 A1. Low seven bits of A report zero stored
+  DTCs. Mode 03 -> 43 00 00 00 00 00 00, decoded as an empty stored-code list.
+  The raw responses agree with the decoder; this is not evidence of a healthy
+  vehicle or an established fault cause. No specific component is diagnosed.
+- Preserved private report (0600) at the ignored path above. No clear/write,
+  ignition change, state reset, proprietary query or repeated polling occurred.
+  Existing allowlist supports Mode 01/03 only; pending Mode 07 and permanent
+  Mode 0A were NOT queried. Next diagnostic step is pending-code reading with
+  suitable read-only support and, if needed, ECU-specific diagnostic equipment.
+  No new M6.1/Android/fuel-accuracy acceptance is inferred from this probe.
+
+
+### 2026-10-29 — Explicit pending-code read implemented and physically executed
+
+- Owner said «читаем» after Mode 07 was identified as the next read-only step.
+  Worked in the same checkout on feat/pending-dtc, based on 27fcf58. The previous
+  hardware log in STATUS was retained. Owner test.py/test2.py were untouched.
+- Added finite-only --read-pending to obdprobe: literal 07 allowlisted, strict
+  response 47 decoding shares stored-code pair/padding validation, optional
+  pending_dtcs is separate from stored_dtcs with raw/time/source/status. Retry
+  reset/invalidation cannot expose prior codes as current. Default probes,
+  dashboard and recording schedules remain unchanged; Record/Stream and list
+  mode reject the option before opening hardware. Mode 04/08/0A/VIN/arbitrary
+  commands remain blocked; no Go/dependency/fuel-state change.
+- Tests first failed on the missing pending API, then passed: synthetic codes,
+  empty/malformed/wrong-mode/negative/NO DATA replies, opt-in/default audit,
+  restart/staleness, finite-only flags, and separate human/JSON output. Added
+  exact physical MIL/03/07 fixture; nonzero P0133 test codes are synthetic only.
+- Offline checks passed: go test ./... -count=1; go test -race ./internal/elm327
+  ./internal/probe ./cmd/obdprobe -count=1; make lint; go build -o bin/obdprobe
+  ./cmd/obdprobe. Focused tests were repeated after adding the physical fixture
+  and human/JSON output checks; no vehicle access is needed for these tests.
+- After confirming no concurrent OBD process, ran one native BLE probe:
+  ./bin/obdprobe --transport=ble --ble-name=IOS-Vlink --retries=0 --read-pending
+  --output=diagnostics/check-engine-pending-20261029-001.json
+  Completed at 13:16:15 Europe/Moscow, status=complete, one attempt, all 13
+  commands ok, no warnings, exit 0 and normal connection/helper close.
+- Actual replies: 0101 -> 41 01 80 07 E1 A1 (MIL on, stored count 0);
+  03 -> 43 00 00 00 00 00 00; 07 -> 47 00 00 00 00 00 00.
+  Both code lists available and empty. RPM=883, coolant=94°C, speed=0 km/h;
+  ATRV=13.2V is adapter supply. Report preserved privately in ignored diagnostics/.
+- No fault cause/component diagnosis follows from these empty generic lists.
+  Next useful step: suitable ECU-specific GM/Daewoo diagnostic equipment and
+  vehicle inspection; ECU model remains unconfirmed. Mode 0A/permanent codes,
+  freeze frames, proprietary reads and code clearing were not performed.
+  No change to ignition/engine state was requested or made by the agent.

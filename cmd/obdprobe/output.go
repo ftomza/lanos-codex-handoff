@@ -87,7 +87,14 @@ func showReport(w io.Writer, report probe.Report, redact bool) error {
 			return err
 		}
 	}
-	if _, err := fmt.Fprintf(w, "Stored Mode 03 DTCs: status=%s codes=%v (pending/permanent codes not queried)\n", report.StoredDTCs.Status, report.StoredDTCs.Codes); err != nil {
+	note := "pending/permanent codes not queried"
+	if report.PendingDTCs != nil {
+		note = "permanent codes not queried"
+		if _, err := fmt.Fprintf(w, "Pending Mode 07 DTCs: status=%s codes=%v\n", report.PendingDTCs.Status, report.PendingDTCs.Codes); err != nil {
+			return err
+		}
+	}
+	if _, err := fmt.Fprintf(w, "Stored Mode 03 DTCs: status=%s codes=%v (%s)\n", report.StoredDTCs.Status, report.StoredDTCs.Codes, note); err != nil {
 		return err
 	}
 	for _, warning := range report.Warnings {

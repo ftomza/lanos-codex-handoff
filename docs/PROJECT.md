@@ -3,6 +3,7 @@
 ## Context
 - Vehicle: Chevrolet Lanos 1.5 8V, reported 2007; VIN indicates ZAZ origin and potentially 2008 model year. 16-pin diagnostic connector.
 - ECU: likely Delphi MR-140, **not confirmed** by authoritative ECU part label or live identification.
+- 2026-10-29: owner reports steady Check Engine and smooth running engine; native BLE confirms MIL on, with empty stored Mode 03 and pending Mode 07 replies. Fault cause remains unresolved; see STATUS.md.
 - Check Engine was initially reported on; Issue #1 (2026-10-24) reports it is now off. Preserve trouble codes and never erase them. One Mode 03 response contained no stored DTCs; pending/permanent codes were not queried.
 - Adapter: **Vgate iCar Pro BLE 4.0 Dual**, corrected by the owner in [Issue #1 comment](https://github.com/ftomza/lanos-codex-handoff/issues/1#issuecomment-6383158184). Classic SPP through `/dev/cu.Android-Vlink` worked on MacBook M3. `ELM327 v2.3` is the reported ATI identity, not a detected product model.
 - Development machine: MacBook M3, macOS. Issue #1 observed `/dev/cu.Android-Vlink` and auto-selected protocol A5 (ISO 14230-4 KWP2000 fast init); Bluetooth can disconnect across ignition changes. Future port availability/reconnect are not guaranteed.

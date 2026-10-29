@@ -37,10 +37,10 @@ func NewSession(wire Transport) *Session {
 }
 
 // SafeCommand intentionally excludes arbitrary AT commands, VIN requests and
-// every OBD mode except read-only Mode 01 and stored-DTC Mode 03.
+// every OBD mode except read-only Mode 01, stored-DTC Mode 03 and pending Mode 07.
 func SafeCommand(command string) bool {
 	switch command {
-	case "ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATI", "ATSP0", "ATDPN", "ATRV", "03":
+	case "ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATI", "ATSP0", "ATDPN", "ATRV", "03", "07":
 		return true
 	}
 	if len(command) != 4 || !strings.HasPrefix(command, "01") {

@@ -269,6 +269,7 @@ See [third-party notices](docs/THIRD_PARTY.md) when distributing native binaries
 | `--recovery-timeout` | `30s` | Wait for a delayed prompt without sending commands. |
 | `--retries` | `2` | Additional attempts, maximum 5; backoff 0.5, 1, 2, 4, 4 seconds. Recording uses one total budget for the entire run. |
 | `--scan-supported` | false | Follow advertised bitmap continuations and sample declared PIDs. |
+| `--read-pending` | false | Finite probe only: additionally read Mode 07 pending DTCs; separate report, no clearing. |
 | `--json` | false | One JSON report on stdout instead of a human-readable command audit. |
 | `--output` | empty | Exclusive-create report JSON or recording JSONL, permissions 0600; recording mode generates a path in diagnostics/ when omitted. |
 | `--record` | false | Continuous capability-gated trip recording to private JSONL; start while parked and leave unattended. |
@@ -281,6 +282,15 @@ reads `0100` and `ATDPN`, queries adapter voltage `ATRV`, then RPM/coolant/speed
 only if advertised, and reads stored DTCs with `03`. A full scan follows each
 continuation only when bit 32 permits it. Unknown decoder payloads are preserved
 as `raw_only`, with no invented numeric value. MAF/fuel level are never assumed.
+
+For a separately agreed parked Check Engine investigation, add `--read-pending`
+to the finite probe. Mode 07 runs after the existing Mode 03 read, with the same
+timeouts/recovery and a separate optional `pending_dtcs` result. An unavailable,
+rejected or malformed response stays unavailable; only a valid empty response
+means no pending codes returned. Permanent Mode 0A is not queried. This option
+cannot combine with `--record`/`--list-ports`; default probes and the dashboard
+schedule remain unchanged. On 2026-10-29 one physical read returned MIL on with
+empty stored and pending lists; the fault cause remains unknown (STATUS.md).
 
 Each report includes per-command start/end timestamps, raw bytes (CR escaped in
 JSON), status/error, response timestamps and per-PID support evidence. `NO DATA`

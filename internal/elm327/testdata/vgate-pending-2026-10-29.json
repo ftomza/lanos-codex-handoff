@@ -1,0 +1,8 @@
+{
+  "context": "Single physical native BLE read: parked, engine running, owner reports steady Check Engine and smooth idle. No clear commands. Exact replies only; the ECU model is unconfirmed.",
+  "exchanges": [
+    {"command": "0101", "raw": "41 01 80 07 E1 A1 \r\r>"},
+    {"command": "03", "raw": "43 00 00 00 00 00 00 \r\r>"},
+    {"command": "07", "raw": "47 00 00 00 00 00 00 \r\r>"}
+  ]
+}

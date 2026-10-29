@@ -79,6 +79,7 @@ type Report struct {
 	Capabilities   []Capability     `json:"capabilities"`
 	AdapterVoltage AdapterVoltage   `json:"adapter_voltage"`
 	StoredDTCs     DTCResult        `json:"stored_dtcs"`
+	PendingDTCs    *DTCResult       `json:"pending_dtcs,omitempty"`
 	Commands       []CommandLog     `json:"commands"`
 	Warnings       []string         `json:"warnings"`
 	Error          string           `json:"error,omitzero"`
@@ -97,6 +98,9 @@ func resetReport(report *Report, cfg Config, attempt int) {
 		Attempts: attempt, Commands: logs, Capabilities: make([]Capability, 255), Bitmaps: []Bitmap{}, Warnings: []string{},
 		StoredDTCs:     DTCResult{Source: "ecu_mode03", Status: "not_yet_tested"},
 		AdapterVoltage: AdapterVoltage{Source: "adapter_atrv", Status: "not_yet_tested", Unit: "V"}}
+	if cfg.ReadPending {
+		report.PendingDTCs = &DTCResult{Source: "ecu_mode07", Status: "not_yet_tested"}
+	}
 	if cfg.Transport == "ble" {
 		report.Transport, report.Source = "ble_gatt", "elm327_ble"
 		report.Port, report.Baud = "", 0
@@ -126,6 +130,10 @@ func (report *Report) invalidate() {
 	if report.StoredDTCs.Status == "available" {
 		report.StoredDTCs.Status = "stale"
 		report.StoredDTCs.Codes = nil
+	}
+	if report.PendingDTCs != nil && report.PendingDTCs.Status == "available" {
+		report.PendingDTCs.Status = "stale"
+		report.PendingDTCs.Codes = nil
 	}
 	if report.AdapterVoltage.Status == "available" {
 		report.AdapterVoltage.Status = "stale"
