@@ -1069,3 +1069,25 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   vehicle inspection; ECU model remains unconfirmed. Mode 0A/permanent codes,
   freeze frames, proprietary reads and code clearing were not performed.
   No change to ignition/engine state was requested or made by the agent.
+
+
+### 2026-11-03 — M3.3.1 completed offline
+
+- Owner saved M3.3 in docs/PLAN.md and requested M3.3.1–M3.3.4 only. Created
+  feat/mil-diagnostics from d95da3a (contains M4/M6/M6.1/Mode07). Preserved the
+  owner's PLAN addition and untracked scripts; no worktree or hardware access.
+- Read AGENTS, PROJECT, PLAN, STATUS, capabilities, FUEL_COMPUTER and existing
+  probe/live/fuel/history code. Analyzed the exact requested part under
+  data/fuel-history/live, read-only with Python standard-library JSON streaming.
+  1299 valid rows, no JSON errors, correct session_end, SHA-256 and Moscow times
+  recorded in docs/diagnostics/FIRST_TRIP_ANALYSIS.md.
+- The file is 2026-10-29 11:44–12:06, 22m7s, with one failed startup generation
+  and a later successful generation; 4989 commands/17 errors/two gap counters.
+  Constant IAT=20 across 149 distinct capture timestamps, ECT 6..89, RPM 0..3248.5,
+  speed 0..78, MAP 25..102, trims/O2 and adapter supply ranges are documented.
+- No MIL/DTC/readiness/fuel-system status or load existed in the saved snapshot;
+  original MIL onset and its cause cannot be reconstructed. This record does
+  not contain the old -40→20 transition. Kept hypotheses separate from evidence.
+- Verification: Python streaming analysis + integrity/unique-timestamp/TTL checks
+  passed; git diff --check. No application changes or hardware tests in this step.
+  Next: M3.3.2 read-only readiness/permanent/freeze-frame/headers with fixtures.
