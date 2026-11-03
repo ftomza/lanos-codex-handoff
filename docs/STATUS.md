@@ -1143,3 +1143,51 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   focused recovery tests passed 50 runs. Production timeouts are unchanged.
 - No hardware, fuel formulas/state, dependencies or Go version changes.
   Next: M3.3.4 capture manager, private bounded JSONL and dashboard CLI wiring.
+
+### 2026-11-03 — M3.3.4 diagnostic snapshots and JSONL completed offline
+
+- Added opt-in dashboard --mil-record-dir and --mil-interval (default5s,
+  target1..60s). Early validation rejects incomplete/mixed configuration.
+  One capture observer attaches before Source.Start; no second transport or
+  browser-dependent accounting. API/SSE expose mil, ecu_readings, poll and
+  mil_recording; the dedicated diagnostic screen remains M3.3.6.
+- ON/MIL_ALREADY_ON/ON_AFTER_GAP preserve retained60s pre/30s post context.
+  Nearby triggers share an incident, deadline bounded at first+120s. Every
+  transition/loss is saved even outside an incident; late queued diagnostics
+  have independent rows without guessed association. Initial/missing pre,
+  capacity eviction, stale data, timer gaps and early shutdown stay explicit.
+- Frames retain raw telemetry, signal ages/effective health, load/trims/O2,
+  adapter supply, connectivity/generation/counters, last latency/error, read-only
+  diagnostic evidence and existing Fuel.Diagnostic with its own input times.
+  The getter never advances fuel accounting; a real Computer regression verifies
+  unchanged totals/state. Stored freeze readings never become live fuel inputs.
+- New milstore: bounded256 asynchronous queue,1MiB row cap, default8x16MiB managed
+  parts, strict source-bound manifest and retention flag. New directories0700,
+  files0600, exclusive lock, no overwrite or foreign-file removal, VIN redaction,
+  fsync5s/rotation/close. Symlink paths rejected; orphan/corrupt records preserved
+  with actionable failure. Missing footer/aborted parts remain incomplete.
+  Runtime failure appears in API/stderr/Close while telemetry/fuel continue.
+- Tests cover full synthetic60+30s through real JSONL, initialON/partial close,
+  overlaps/hard deadline, late replies, no fabricated past frames after delayed
+  ticks, read-only fuel context, queue/disk/lock/crash/retention/privacy, fast
+  OFF/ON/OFF before Read, and two SSE browsers sharing one source. MIL-specific
+  server failure test confirms visible API failure plus continuing fuel/telemetry
+  and returned shutdown error. Independent spec/quality reviews passed.
+- Final verification passed: go test ./... -count=1; go test -race ./... -count=1;
+  make lint (includes go vet ./...); make test-web (26 passed); make
+  build-dashboard build-obdprobe build-fuelanalyze build (including native BLE
+  helper); git diff --check. All changed Go functions are <=100 lines; goimports
+  unavailable, imports grouped manually and gofmt clean. No dependency/Go version
+  changes, ECU writes, fuel-state/formula changes or hardware access.
+- Built-binary synthetic smoke passed: two simulator launches, each with two
+  SSE clients, recording status, private permissions, clean SIGINT/exit0,
+  exclusive-lock removal, two distinct persisted sessions across restart and
+  invalid flags rejected before startup. Simulator intentionally has no MIL;
+  complete ON/OFF capture is covered by the synthetic Go integration tests.
+  Artifacts: /private/tmp/lanos-mil-smoke-2nno8s5m/report.json.
+- Updated README, PLAN, MIL_DIAGNOSTICS and NEXT_CONNECTION with exact next-run
+  command, interpretation/retention/lock guidance and unchanged fuel-state path.
+  Private data/mil-events is ignored; owner scripts remain excluded. Delivery on
+  feat/mil-diagnostics; no main merge. No new hardware/Android/fuel-accuracy claim.
+  Next: separately authorized M3.3.7 parked physical acceptance and/or M3.3.5
+  offline correlation, then M3.3.6 diagnostic screen; these remain unimplemented.

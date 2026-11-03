@@ -21,15 +21,17 @@ type SignalAge struct {
 // Snapshot is raw evidence. SignalAges indicates applicability at this frame's At.
 // FuelContext has its own input timestamps; sequential sources are not simultaneous.
 type Frame struct {
-	At          time.Time            `json:"at"`
-	Snapshot    telemetry.Snapshot   `json:"snapshot"`
-	SignalAges  map[string]SignalAge `json:"signal_ages,omitempty"`
-	FuelContext json.RawMessage      `json:"fuel_context,omitempty"`
+	EffectiveHealth telemetry.Health     `json:"effective_health"`
+	At              time.Time            `json:"at"`
+	Snapshot        telemetry.Snapshot   `json:"snapshot"`
+	SignalAges      map[string]SignalAge `json:"signal_ages,omitempty"`
+	FuelContext     json.RawMessage      `json:"fuel_context,omitempty"`
 }
 
 func NewFrame(now time.Time, snapshot telemetry.Snapshot, staleAfter time.Duration) Frame {
 	f := Frame{At: now.UTC(), Snapshot: snapshot.Clone(), SignalAges: make(map[string]SignalAge, len(snapshot.Signals))}
 	effective := snapshot.At(now, staleAfter)
+	f.EffectiveHealth = effective.Health
 	for k, s := range snapshot.Signals {
 		age := SignalAge{Applicable: effective.Signals[k].Status == "available" && effective.Signals[k].Value != nil}
 		if !s.CapturedAt.IsZero() {

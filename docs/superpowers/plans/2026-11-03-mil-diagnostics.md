@@ -14,12 +14,12 @@ Owner authorized M3.3.1–M3.3.4 in docs/PLAN.md. No hardware access.
   UNKNOWN on loss/expiry; initialON, confirmed OFF/ON, gap resume, capture dedup.
   Configure 0101 due5s and serialized low-priority DTC job; test single transport,
   priority/fairness, bounds, no writes and recovery. Update STATUS.
-- [ ] M3.3.4: TDD managed private bounded JSONL incidents and capture lifecycle;
+- [x] M3.3.4: TDD managed private bounded JSONL incidents and capture lifecycle;
   attach observer before Start, include existing Fuel.View without integration,
   telemetry/source ages/raw diagnostic replies and poll latency/error context.
   Validate flags early, queue/retention/lock/failure/close, pre60/post30 and gaps.
   Run synthetic complete/aborted capture, two-browser and persistence checks.
-- [ ] Full go test ./... -count=1, go test -race ./... -count=1, make lint,
+- [x] Full go test ./... -count=1, go test -race ./... -count=1, make lint,
   make test-web, make build-dashboard build-obdprobe build-fuelanalyze build.
   Update README/NEXT_CONNECTION/PLAN/STATUS, commit intended files and push branch.
   Leave private records and owner scripts untouched; no M3.3.5+ implementation.

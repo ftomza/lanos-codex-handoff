@@ -14,6 +14,8 @@ import (
 )
 
 type dashboardOptions struct {
+	milDir                string
+	milInterval           time.Duration
 	recordDir, historyDir string
 	recordInterval        time.Duration
 	recordMaxBytes        int64
@@ -49,6 +51,7 @@ func parseDashboardFlags(args []string, out io.Writer) (dashboardOptions, error)
 	c.AdapterModel = probe.KnownAdapterModel
 	registerFuelFlags(f, &o)
 	registerHistoryFlags(f, &o)
+	registerMILFlags(f, &o)
 	if err := f.Parse(args); err != nil {
 		return o, err
 	}
@@ -64,6 +67,9 @@ func parseDashboardFlags(args []string, out io.Writer) (dashboardOptions, error)
 		return o, err
 	}
 	if err := validateHistoryFlags(&o, explicit); err != nil {
+		return o, err
+	}
+	if err := validateMILFlags(&o, explicit); err != nil {
 		return o, err
 	}
 	return o, nil

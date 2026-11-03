@@ -81,6 +81,16 @@ replace the vehicle's factory instruments.
 
 ## Live dashboard (M4)
 
+MIL context recording (M3.3.1–M3.3.4, offline verified) is opt-in:
+add `--mil-record-dir=data/mil-events/live --mil-interval=5s` to the live command.
+The shared connection monitors 0101, captures 60s before/30s after an observed
+MIL-on event and queues read-only DTC/freeze-frame requests. Already-on MIL and
+lost/stale data are explicit. Fuel totals are read without advancing accounting.
+Recording status appears in `/api/snapshot` as `mil_recording`; JSONL and raw
+diagnostics are saved privately. The diagnostics screen and correlation analysis
+are later milestones. See [MIL_DIAGNOSTICS.md](docs/MIL_DIAGNOSTICS.md) and
+[next connection](docs/NEXT_CONNECTION.md); Mode02/0A/ATH1 remain physically untested.
+
 ```sh
 make build-dashboard
 ./bin/dashboard --source=elm327 --transport=ble --ble-name=IOS-Vlink
