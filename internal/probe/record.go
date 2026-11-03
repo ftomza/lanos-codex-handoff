@@ -48,8 +48,8 @@ func (r *Runner) Stream(ctx context.Context, sink func(record.Event) error) (Rec
 }
 
 func (r *Runner) runStream(ctx, parent context.Context, duration time.Duration, sink func(record.Event) error) (RecordingSummary, error) {
-	if r.config.ReadPending {
-		return RecordingSummary{}, fmt.Errorf("pending dtc reads require a finite diagnostic probe")
+	if r.config.finiteDiagnostics() {
+		return RecordingSummary{}, fmt.Errorf("extended diagnostic flags require a finite diagnostic probe")
 	}
 	runner := *r
 	runner.config.ScanSupported = true

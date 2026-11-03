@@ -10,6 +10,9 @@ import (
 )
 
 type Config struct {
+	ReadPermanent   bool          `json:"read_permanent,omitzero"`
+	ReadFreezeFrame bool          `json:"read_freeze_frame,omitzero"`
+	Headers         bool          `json:"headers,omitzero"`
 	ReadPending     bool          `json:"read_pending,omitzero"`
 	Transport       string        `json:"transport"`
 	BLEName         string        `json:"ble_name"`
@@ -116,6 +119,9 @@ func (r *Runner) Run(ctx context.Context) (Report, error) {
 			}
 		}
 		lastErr = r.scan(ctx, session, &report)
+		if lastErr == nil && r.config.Headers {
+			lastErr = r.restoreHeaders(ctx, session, &report)
+		}
 		if lastErr == nil {
 			lastErr = session.Close()
 			session = nil
@@ -169,11 +175,18 @@ func (r *Runner) command(ctx context.Context, s *elm327.Session, report *Report,
 	}
 	response, err := s.Command(ctx, command, timeout)
 	completed := r.now()
+	if err == nil && r.config.Headers && command[0] != 'A' {
+		var normalizeErr error
+		response, normalizeErr = elm327.NormalizeKWP(response)
+		if normalizeErr != nil {
+			report.unavailable("headers: " + normalizeErr.Error())
+		}
+	}
 	source := "adapter"
 	if command[0] != 'A' {
 		source = "ecu"
 	}
-	log := CommandLog{Attempt: report.Attempts, Action: "command", Command: command, Source: source, StartedAt: started.UTC(), CompletedAt: completed.UTC(), RawResponse: response.Raw, Status: response.Status}
+	log := CommandLog{Attempt: report.Attempts, Action: "command", Command: command, Source: source, StartedAt: started.UTC(), CompletedAt: completed.UTC(), RawResponse: response.Raw, Status: response.Status, Frames: response.Frames}
 	if err != nil {
 		log.Error = err.Error()
 	}

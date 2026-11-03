@@ -11,11 +11,17 @@ func (r *Runner) readDTC(ctx context.Context, s *elm327.Session, report *Report,
 	if err != nil {
 		return err
 	}
-	result.CapturedAt, result.RawResponse = r.now().UTC(), response.Raw
+	result.CapturedAt, result.RawResponse, result.Frames = r.now().UTC(), response.Raw, response.Frames
 	codes, err := decode(response)
 	if err != nil {
 		result.Status = "temporarily_unavailable"
+		if command == "0A" {
+			result.Status = diagnosticResultStatus(response, 10, err)
+		}
 		label := "stored"
+		if command == "0A" {
+			label = "permanent"
+		}
 		if command == "07" {
 			label = "pending"
 		}

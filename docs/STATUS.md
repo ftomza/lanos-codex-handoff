@@ -1091,3 +1091,26 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
 - Verification: Python streaming analysis + integrity/unique-timestamp/TTL checks
   passed; git diff --check. No application changes or hardware tests in this step.
   Next: M3.3.2 read-only readiness/permanent/freeze-frame/headers with fixtures.
+
+### 2026-11-03 — M3.3.2 read-only diagnostic extension, offline
+
+- Added 0101 spark/compression readiness and finite-only obdprobe options
+  --read-permanent, --read-freeze-frame and --headers. Mode0A lists, frame00
+  context and stored/pending lists have independent status/raw/time fields.
+  Mode02 reads its bitmap before advertised first-block context PIDs only.
+- Negative replies distinguish explicit NRC11/12 unsupported, unavailable and
+  malformed responses. Strict service/frame/length checks include raw-only
+  freeze PID03. MIL ON with empty standard lists explicitly remains unresolved.
+- ATH1 accepts only validated physical three-byte inline-length KWP frames;
+  responder metadata and optional validated checksum are retained. Unknown
+  layouts fail explicitly. Completed finite scans restore ATH0; cancellation or
+  an unsynchronized timeout sends no cleanup. See MIL_DIAGNOSTICS.md.
+- Existing default command order and stream options remain unchanged. ECU
+  write/clear, arbitrary requests, VIN and proprietary commands stay blocked.
+  No dependencies, Go version, fuel formulas/state or hardware access changed.
+- Verification: go test ./... -count=1; focused tests and race tests for
+  internal/elm327, internal/probe, cmd/obdprobe; make lint; go build -o
+  bin/obdprobe ./cmd/obdprobe; git diff --check. All passed. Independent spec
+  review found a PID03 length gap; regression failed first, fix and re-review
+  passed. No physical Mode02/0A/ATH1 compatibility is claimed.
+- Next: M3.3.3 shared-session MIL monitoring, freshness/loss events and 60s ring.

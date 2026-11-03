@@ -9,18 +9,19 @@ import (
 )
 
 type CommandLog struct {
-	StartedElapsedNS   int64         `json:"started_elapsed_ns,omitzero"`
-	CompletedElapsedNS int64         `json:"completed_elapsed_ns,omitzero"`
-	LatencyNS          int64         `json:"latency_ns,omitzero"`
-	Attempt            int           `json:"attempt"`
-	Action             string        `json:"action"`
-	Command            string        `json:"command,omitzero"`
-	Source             string        `json:"source"`
-	StartedAt          time.Time     `json:"started_at"`
-	CompletedAt        time.Time     `json:"completed_at"`
-	RawResponse        string        `json:"raw_response"`
-	Status             elm327.Status `json:"status"`
-	Error              string        `json:"error,omitzero"`
+	Frames             []elm327.KWPFrame `json:"frames,omitempty"`
+	StartedElapsedNS   int64             `json:"started_elapsed_ns,omitzero"`
+	CompletedElapsedNS int64             `json:"completed_elapsed_ns,omitzero"`
+	LatencyNS          int64             `json:"latency_ns,omitzero"`
+	Attempt            int               `json:"attempt"`
+	Action             string            `json:"action"`
+	Command            string            `json:"command,omitzero"`
+	Source             string            `json:"source"`
+	StartedAt          time.Time         `json:"started_at"`
+	CompletedAt        time.Time         `json:"completed_at"`
+	RawResponse        string            `json:"raw_response"`
+	Status             elm327.Status     `json:"status"`
+	Error              string            `json:"error,omitzero"`
 }
 
 type Capability struct {
@@ -45,11 +46,12 @@ type Bitmap struct {
 }
 
 type DTCResult struct {
-	Source      string    `json:"source"`
-	Status      string    `json:"status"`
-	Codes       []string  `json:"codes"`
-	CapturedAt  time.Time `json:"captured_at,omitzero"`
-	RawResponse string    `json:"raw_response"`
+	Frames      []elm327.KWPFrame `json:"frames,omitempty"`
+	Source      string            `json:"source"`
+	Status      string            `json:"status"`
+	Codes       []string          `json:"codes"`
+	CapturedAt  time.Time         `json:"captured_at,omitzero"`
+	RawResponse string            `json:"raw_response"`
 }
 
 type AdapterVoltage struct {
@@ -63,26 +65,28 @@ type AdapterVoltage struct {
 
 type Report struct {
 	streaming      bool
-	BLE            *BLEInfo         `json:"ble,omitzero"`
-	Device         DeviceInfo       `json:"device"`
-	Transport      string           `json:"transport"`
-	Source         string           `json:"source"`
-	Status         string           `json:"status"`
-	Port           string           `json:"port,omitzero"`
-	Baud           int              `json:"baud,omitzero"`
-	StartedAt      time.Time        `json:"started_at"`
-	CompletedAt    time.Time        `json:"completed_at"`
-	Attempts       int              `json:"attempts"`
-	Adapter        string           `json:"adapter"`
-	Protocol       *elm327.Protocol `json:"protocol"`
-	Bitmaps        []Bitmap         `json:"bitmaps"`
-	Capabilities   []Capability     `json:"capabilities"`
-	AdapterVoltage AdapterVoltage   `json:"adapter_voltage"`
-	StoredDTCs     DTCResult        `json:"stored_dtcs"`
-	PendingDTCs    *DTCResult       `json:"pending_dtcs,omitempty"`
-	Commands       []CommandLog     `json:"commands"`
-	Warnings       []string         `json:"warnings"`
-	Error          string           `json:"error,omitzero"`
+	BLE            *BLEInfo           `json:"ble,omitzero"`
+	Device         DeviceInfo         `json:"device"`
+	Transport      string             `json:"transport"`
+	Source         string             `json:"source"`
+	Status         string             `json:"status"`
+	Port           string             `json:"port,omitzero"`
+	Baud           int                `json:"baud,omitzero"`
+	StartedAt      time.Time          `json:"started_at"`
+	CompletedAt    time.Time          `json:"completed_at"`
+	Attempts       int                `json:"attempts"`
+	Adapter        string             `json:"adapter"`
+	Protocol       *elm327.Protocol   `json:"protocol"`
+	Bitmaps        []Bitmap           `json:"bitmaps"`
+	Capabilities   []Capability       `json:"capabilities"`
+	AdapterVoltage AdapterVoltage     `json:"adapter_voltage"`
+	StoredDTCs     DTCResult          `json:"stored_dtcs"`
+	PermanentDTCs  *DTCResult         `json:"permanent_dtcs,omitempty"`
+	FreezeFrame    *FreezeFrameResult `json:"freeze_frame,omitempty"`
+	PendingDTCs    *DTCResult         `json:"pending_dtcs,omitempty"`
+	Commands       []CommandLog       `json:"commands"`
+	Warnings       []string           `json:"warnings"`
+	Error          string             `json:"error,omitzero"`
 }
 
 type BLEInfo struct {
@@ -98,6 +102,12 @@ func resetReport(report *Report, cfg Config, attempt int) {
 		Attempts: attempt, Commands: logs, Capabilities: make([]Capability, 255), Bitmaps: []Bitmap{}, Warnings: []string{},
 		StoredDTCs:     DTCResult{Source: "ecu_mode03", Status: "not_yet_tested"},
 		AdapterVoltage: AdapterVoltage{Source: "adapter_atrv", Status: "not_yet_tested", Unit: "V"}}
+	if cfg.ReadPermanent {
+		report.PermanentDTCs = &DTCResult{Source: "ecu_mode0a", Status: "not_yet_tested"}
+	}
+	if cfg.ReadFreezeFrame {
+		report.FreezeFrame = &FreezeFrameResult{Source: "ecu_mode02", Status: "not_yet_tested", Readings: []FreezeReading{}}
+	}
 	if cfg.ReadPending {
 		report.PendingDTCs = &DTCResult{Source: "ecu_mode07", Status: "not_yet_tested"}
 	}
@@ -135,6 +145,11 @@ func (report *Report) invalidate() {
 		report.PendingDTCs.Status = "stale"
 		report.PendingDTCs.Codes = nil
 	}
+	if report.PermanentDTCs != nil && report.PermanentDTCs.Status == "available" {
+		report.PermanentDTCs.Status = "stale"
+		report.PermanentDTCs.Codes = nil
+	}
+	report.FreezeFrame.invalidate()
 	if report.AdapterVoltage.Status == "available" {
 		report.AdapterVoltage.Status = "stale"
 		report.AdapterVoltage.Value = nil

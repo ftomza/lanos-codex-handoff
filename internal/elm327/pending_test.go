@@ -32,7 +32,7 @@ func TestPendingDTCStrictModeAndPadding(t *testing.T) {
 	if !SafeCommand("07") {
 		t.Fatal("pending read blocked")
 	}
-	for _, command := range []string{"04", "08", "0A", "0902", "ATSH8110F1", "07\r04"} {
+	for _, command := range []string{"04", "08", "0902", "ATSH8110F1", "07\r04"} {
 		if SafeCommand(command) {
 			t.Fatal("unsafe or out-of-scope command allowed", command)
 		}

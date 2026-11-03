@@ -37,11 +37,19 @@ func NewSession(wire Transport) *Session {
 }
 
 // SafeCommand intentionally excludes arbitrary AT commands, VIN requests and
-// every OBD mode except read-only Mode 01, stored-DTC Mode 03 and pending Mode 07.
+// ECU writes. Mode 02 is limited to frame-zero engine context.
 func SafeCommand(command string) bool {
 	switch command {
-	case "ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATI", "ATSP0", "ATDPN", "ATRV", "03", "07":
+	case "ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATH1", "ATI", "ATSP0", "ATDPN", "ATRV", "03", "07", "0A":
 		return true
+	}
+	if len(command) == 6 && strings.HasPrefix(command, "02") {
+		for _, pid := range append([]byte{0}, FreezeFramePIDs()...) {
+			if c, _ := FreezeFrameCommand(pid); c == command {
+				return true
+			}
+		}
+		return false
 	}
 	if len(command) != 4 || !strings.HasPrefix(command, "01") {
 		return false

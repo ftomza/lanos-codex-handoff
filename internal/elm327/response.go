@@ -17,9 +17,10 @@ const (
 )
 
 type Response struct {
-	Raw    string   `json:"raw_response"`
-	Lines  []string `json:"lines"`
-	Status Status   `json:"status"`
+	Frames []KWPFrame `json:"frames,omitempty"`
+	Raw    string     `json:"raw_response"`
+	Lines  []string   `json:"lines"`
+	Status Status     `json:"status"`
 }
 
 func compact(s string) string { return strings.ToUpper(strings.Join(strings.Fields(s), "")) }

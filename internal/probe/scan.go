@@ -44,15 +44,20 @@ func (r *Runner) scanReadings(ctx context.Context, s *elm327.Session, report *Re
 		return err
 	}
 	if r.config.ReadPending {
-		return r.readDTC(ctx, s, report, "07", report.PendingDTCs, elm327.DecodePendingDTC)
+		if err := r.readDTC(ctx, s, report, "07", report.PendingDTCs, elm327.DecodePendingDTC); err != nil {
+			return err
+		}
 	}
-	return nil
+	return r.readExtended(ctx, s, report)
 }
 
 func (r *Runner) initialize(ctx context.Context, s *elm327.Session, report *Report) error {
 	commands := []string{"ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATI", "ATSP0"}
 	if r.config.Transport == "ble" {
 		commands = []string{"ATE0", "ATL0", "ATI", "ATSP0"}
+	}
+	if r.config.Headers {
+		commands = append(commands, "ATH1")
 	}
 	for _, command := range commands {
 		response, err := r.command(ctx, s, report, command)
