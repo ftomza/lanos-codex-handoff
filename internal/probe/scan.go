@@ -158,7 +158,7 @@ func (r *Runner) readPID(ctx context.Context, s *elm327.Session, report *Report,
 	c.RawResponse = response.Raw
 	c.CapturedAt = r.now().UTC()
 	if response.Status != elm327.OK {
-		c.Status = "temporarily_unavailable"
+		c.Status = diagnosticResultStatus(response, 1, nil)
 		report.unavailable("PID " + c.PID + ": " + string(response.Status))
 		return nil
 	}

@@ -294,9 +294,9 @@ func TestStreamNoCoreChecksECUInsteadOfAdapterOnly(t *testing.T) {
 func TestStreamTimeoutKeepsSessionAndRecoversBeforeWriting(t *testing.T) {
 	t.Parallel()
 	a := fixtureAdapter(t)
-	a.failCommand, a.latePrompt = "010C", true
+	a.failCommand, a.latePrompt, a.injectedTimeout = "010C", true, true
+	// The timeout is injected only for 010C, not for immediate healthy replies.
 	r, _ := recordingRunner(t, a, 0)
-	r.config.Timeout = time.Millisecond
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	opens, recoveries := 0, 0

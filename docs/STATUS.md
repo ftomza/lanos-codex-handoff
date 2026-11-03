@@ -1114,3 +1114,32 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   review found a PID03 length gap; regression failed first, fix and re-review
   passed. No physical Mode02/0A/ATH1 compatibility is claimed.
 - Next: M3.3.3 shared-session MIL monitoring, freshness/loss events and 60s ring.
+
+### 2026-11-03 — M3.3.3 MIL monitor and shared-session scheduling, offline
+
+- Added MILMonitor: initial MIL_ALREADY_ON, confirmed MIL_ON/MIL_OFF, UNKNOWN
+  on expiry/loss, and separate observations after gaps. New response timestamps
+  establish continuity; duplicates or old MIL cannot become a new transition.
+  Events retain count/raw/readiness/host timestamps and transition bounds.
+- Source publishes every update to one observer registered before Start, so
+  coalesced Read and browser count cannot lose MIL transitions. Additive snapshot
+  fields retain independent MIL TTL, read-only diagnostic evidence and last poll
+  latency/errors; cloning owns all pointers/maps. Load is exposed from existing
+  0104 polling. Stored freeze-frame values never enter live/fuel signals.
+- Config.MILInterval=0 preserves defaults; enabled Stream accepts 1s..60s. Core
+  reads precede a due-MIL slot and at most one ordinary/diagnostic slot. Separate
+  slots prevent starvation at 1s; diagnostics alternate with due ordinary work.
+  Queue: 03/07/0A/020000 then advertised frame00 context. Unsupported requests
+  latch per generation. No new connection, commands remain serialized/read-only.
+- 60s ring samples at most once per second plus forced boundaries, hard cap256.
+  One boundary predecessor handles fractional event timing; missing start or
+  capacity-evicted pre-context is explicit. Independent spec and quality review
+  passed after red-green fixes for the boundary and duplicate loss events.
+- Verification: go test ./... -count=1, focused monitor/source/telemetry tests,
+  focused race tests, make lint and git diff --check passed. Concurrent stress
+  reproduced old 1–5ms recovery-fixture flakes; three tests now inject one
+  synthetic timeout while healthy commands retain 1s deadlines. Recovery/prompt
+  assertions remain; probe race stress passed five runs at parallelism64 and
+  focused recovery tests passed 50 runs. Production timeouts are unchanged.
+- No hardware, fuel formulas/state, dependencies or Go version changes.
+  Next: M3.3.4 capture manager, private bounded JSONL and dashboard CLI wiring.

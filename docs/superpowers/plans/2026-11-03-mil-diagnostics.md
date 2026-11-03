@@ -10,7 +10,7 @@ Owner authorized M3.3.1–M3.3.4 in docs/PLAN.md. No hardware access.
   allowlist; finite probe opt-in and separate report fields; preserve defaults.
   Test known empty responses, NRC11/12, NO DATA, malformed/wrong headers/payloads,
   frame selection and unsupported outcomes. Run Go/race/lint/build, update STATUS.
-- [ ] M3.3.3: TDD domain MIL state/event/ring and Source snapshot propagation.
+- [x] M3.3.3: TDD domain MIL state/event/ring and Source snapshot propagation.
   UNKNOWN on loss/expiry; initialON, confirmed OFF/ON, gap resume, capture dedup.
   Configure 0101 due5s and serialized low-priority DTC job; test single transport,
   priority/fairness, bounds, no writes and recovery. Update STATUS.

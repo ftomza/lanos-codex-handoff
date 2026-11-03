@@ -28,10 +28,13 @@ type RecordingCapabilities struct {
 }
 
 type RecordingReading struct {
-	Status string   `json:"status"`
-	PID    string   `json:"pid,omitzero"`
-	Error  string   `json:"error,omitzero"`
-	Codes  []string `json:"codes,omitzero"`
+	Source    string   `json:"source,omitzero"`
+	Frame     *int     `json:"frame,omitempty"`
+	Supported []string `json:"supported,omitempty"`
+	Status    string   `json:"status"`
+	PID       string   `json:"pid,omitzero"`
+	Error     string   `json:"error,omitzero"`
+	Codes     []string `json:"codes,omitzero"`
 	elm327.Measurement
 }
 
@@ -44,7 +47,13 @@ type RecordingCommand struct {
 }
 
 func recordingReading(log CommandLog) *RecordingReading {
-	if log.Action != "command" || !(strings.HasPrefix(log.Command, "01") || log.Command == "03" || log.Command == "ATRV") {
+	if log.Action != "command" {
+		return nil
+	}
+	if result, ok := recordingDiagnostic(log); ok {
+		return result
+	}
+	if !(strings.HasPrefix(log.Command, "01") || log.Command == "ATRV") {
 		return nil
 	}
 	result := &RecordingReading{Status: "temporarily_unavailable"}
@@ -64,8 +73,6 @@ func recordingReading(log CommandLog) *RecordingReading {
 		if err == nil {
 			result.Value, result.Unit = &value, "V"
 		}
-	case log.Command == "03":
-		result.Codes, err = elm327.DecodeDTC(response)
 	case itemPID(log.Command)%32 == 0:
 		_, err = elm327.DecodeSupported(itemPID(log.Command), response)
 		if err == nil {
@@ -112,7 +119,7 @@ func (s *recording) observe(log CommandLog) error {
 	if log.Error != "" || log.Status != elm327.OK || reading != nil && (reading.Status == "invalid_response" || reading.Status == "temporarily_unavailable") {
 		s.summary.Errors++
 	}
-	if reading != nil && (reading.Status == "available" || reading.Status == "raw_only") && log.Command != "03" {
+	if reading != nil && (reading.Status == "available" || reading.Status == "raw_only") && !isDiagnosticCommand(log.Command) {
 		s.summary.Samples++
 	}
 	return s.emit("command", RecordingCommand{CommandLog: log, StartedElapsedNS: log.StartedElapsedNS, CompletedElapsedNS: log.CompletedElapsedNS, LatencyNS: log.LatencyNS, Result: reading})

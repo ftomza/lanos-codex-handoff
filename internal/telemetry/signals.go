@@ -35,6 +35,7 @@ func copyNumber(value *float64) *float64 {
 }
 
 func (s Snapshot) Clone() Snapshot {
+	s = s.cloneDiagnostics()
 	s.RPM, s.SpeedKMH = copyNumber(s.RPM), copyNumber(s.SpeedKMH)
 	s.CoolantC, s.VoltageV = copyNumber(s.CoolantC), copyNumber(s.VoltageV)
 	if s.Signals != nil {

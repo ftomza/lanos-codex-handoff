@@ -139,22 +139,27 @@ func (s *recording) ecuReady(ctx context.Context) (bool, error) {
 }
 
 func (s *recording) pollWithoutCore(ctx context.Context, schedule *pollSchedule) error {
+	nextCheck := s.r.now().Add(standbyInterval)
+	interval := standbyInterval
+	if schedule.mil != nil {
+		interval = time.Second
+	}
 	for {
-		if err := s.r.wait(ctx, standbyInterval); err != nil {
+		if err := s.r.wait(ctx, interval); err != nil {
 			return err
 		}
-		ready, err := s.ecuReady(ctx)
-		if err != nil {
-			return err
-		}
-		if !ready {
-			return errECUWaiting
-		}
-		if command := schedule.support(s.r.now()); command != "" {
-			if err := s.readScheduled(ctx, command); err != nil {
+		if !s.r.now().Before(nextCheck) {
+			ready, err := s.ecuReady(ctx)
+			if err != nil {
 				return err
 			}
-			schedule.complete(command, s.r.now())
+			if !ready {
+				return errECUWaiting
+			}
+			nextCheck = s.r.now().Add(standbyInterval)
+		}
+		if err := s.pollSupport(ctx, schedule); err != nil {
+			return err
 		}
 	}
 }

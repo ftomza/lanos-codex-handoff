@@ -16,7 +16,7 @@ func TestPendingReadIsOptInAndAudited(t *testing.T) {
 		enabled bool
 		raw     string
 		status  string
-	}{{false, "470133\r>", ""}, {true, "4701330000\r>", "available"}, {true, "470000\r>", "available"}, {true, "NO DATA\r>", "temporarily_unavailable"}, {true, "430133\r>", "temporarily_unavailable"}, {true, "7F0711\r>", "temporarily_unavailable"}} {
+	}{{false, "470133\r>", ""}, {true, "4701330000\r>", "available"}, {true, "470000\r>", "available"}, {true, "NO DATA\r>", "temporarily_unavailable"}, {true, "430133\r>", "invalid_response"}, {true, "7F0711\r>", "unsupported"}} {
 		t.Run(tc.raw+tc.status, func(t *testing.T) {
 			t.Parallel()
 			a := fixtureAdapter(t)

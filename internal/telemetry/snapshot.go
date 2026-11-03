@@ -19,22 +19,25 @@ const (
 // Snapshot is immutable after publication. Nil means unavailable, never zero.
 // Measurement units are part of the transport contract for future native clients.
 type Snapshot struct {
-	Generation   uint64            `json:"generation,omitzero"`
-	Diagnostics  Diagnostics       `json:"diagnostics,omitzero"`
-	Signals      map[string]Signal `json:"signals,omitempty"`
-	Transport    string            `json:"transport,omitzero"`
-	SourceDetail string            `json:"source_detail,omitzero"`
-	Adapter      string            `json:"adapter,omitzero"`
-	Protocol     string            `json:"protocol,omitzero"`
-	RPM          *float64          `json:"rpm"`
-	SpeedKMH     *float64          `json:"speed_kmh"`
-	CoolantC     *float64          `json:"coolant_c"`
-	VoltageV     *float64          `json:"voltage_v"`
-	Source       string            `json:"source"`
-	CapturedAt   time.Time         `json:"captured_at"`
-	ReceivedAt   time.Time         `json:"received_at"`
-	Health       Health            `json:"health"`
-	Message      string            `json:"message"`
+	MIL          *MILReading           `json:"mil,omitempty"`
+	ECUReadings  map[string]ECUReading `json:"ecu_readings,omitempty"`
+	Poll         *Poll                 `json:"poll,omitempty"`
+	Generation   uint64                `json:"generation,omitzero"`
+	Diagnostics  Diagnostics           `json:"diagnostics,omitzero"`
+	Signals      map[string]Signal     `json:"signals,omitempty"`
+	Transport    string                `json:"transport,omitzero"`
+	SourceDetail string                `json:"source_detail,omitzero"`
+	Adapter      string                `json:"adapter,omitzero"`
+	Protocol     string                `json:"protocol,omitzero"`
+	RPM          *float64              `json:"rpm"`
+	SpeedKMH     *float64              `json:"speed_kmh"`
+	CoolantC     *float64              `json:"coolant_c"`
+	VoltageV     *float64              `json:"voltage_v"`
+	Source       string                `json:"source"`
+	CapturedAt   time.Time             `json:"captured_at"`
+	ReceivedAt   time.Time             `json:"received_at"`
+	Health       Health                `json:"health"`
+	Message      string                `json:"message"`
 }
 
 // Diagnostics are bounded counters for the whole live run, across reconnects.
@@ -61,6 +64,7 @@ func (s Snapshot) At(now time.Time, maxAge time.Duration) Snapshot {
 	if s.Health == Connected && !freshTimes(now, maxAge, s.CapturedAt, s.ReceivedAt) {
 		s.Health, s.Message = Stale, "telemetry has expired"
 	}
+	s = s.milAt(now)
 	if len(s.Signals) == 0 {
 		return s
 	}

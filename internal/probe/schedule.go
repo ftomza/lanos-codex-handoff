@@ -31,6 +31,7 @@ func supportingItems() []scheduledItem {
 }
 
 type pollSchedule struct {
+	mil   *milWork
 	core  []byte
 	items []scheduledItem
 }
@@ -81,12 +82,18 @@ func (s *pollSchedule) support(now time.Time) string {
 	var selected *scheduledItem
 	for i := range s.items {
 		item := &s.items[i]
+		if s.mil != nil && item.Command == "0101" {
+			continue
+		}
 		if item.due.After(now) {
 			continue
 		}
 		if selected == nil || item.due.Before(selected.due) || item.due.Equal(selected.due) && item.Command < selected.Command {
 			selected = item
 		}
+	}
+	if s.mil != nil && len(s.mil.queue) > 0 && (selected == nil || !s.mil.ordinaryNext) {
+		return s.mil.queue[0]
 	}
 	if selected == nil {
 		return ""
@@ -95,6 +102,9 @@ func (s *pollSchedule) support(now time.Time) string {
 }
 
 func (s *pollSchedule) complete(command string, completed time.Time) {
+	if s.mil != nil && command != "0101" {
+		s.mil.ordinaryNext = false
+	}
 	for i := range s.items {
 		if s.items[i].Command == command {
 			s.items[i].due = completed.Add(s.items[i].IntervalNS)

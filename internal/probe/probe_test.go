@@ -18,16 +18,17 @@ import (
 // The fixture remains exact. Responses to commands absent from Issue #1 are
 // explicitly synthetic test inputs; they are never recorded as hardware facts.
 type adapter struct {
-	responses   map[string]string
-	commands    []string
-	deadlines   map[string]time.Duration
-	pending     []byte
-	writeBuffer bytes.Buffer
-	failCommand string
-	latePrompt  bool
-	failed      bool
-	disconnect  bool
-	closed      bool
+	responses       map[string]string
+	commands        []string
+	deadlines       map[string]time.Duration
+	pending         []byte
+	writeBuffer     bytes.Buffer
+	failCommand     string
+	latePrompt      bool
+	injectedTimeout bool
+	failed          bool
+	disconnect      bool
+	closed          bool
 }
 
 func fixtureAdapter(t *testing.T) *adapter {
@@ -82,12 +83,21 @@ func (a *adapter) Read(ctx context.Context, b []byte) (int, error) {
 	if a.failed && a.disconnect {
 		return 0, io.EOF
 	}
+	if a.failed && a.injectedTimeout {
+		a.injectedTimeout = false
+		if a.latePrompt {
+			a.latePrompt = false
+			a.pending = []byte("410C0000\r>")
+		}
+		return 0, context.DeadlineExceeded
+	}
 	if a.failed && a.latePrompt {
 		a.latePrompt = false
 		<-ctx.Done()
 		a.pending = []byte("410C0000\r>")
 		return 0, ctx.Err()
 	}
+
 	<-ctx.Done()
 	return 0, ctx.Err()
 }
@@ -167,8 +177,9 @@ func TestTimeoutRecoveryReinitializes(t *testing.T) {
 	t.Parallel()
 	a := fixtureAdapter(t)
 	a.failCommand = "010C"
-	a.latePrompt = true
-	r, err := New(Config{Timeout: 5 * time.Millisecond, Retries: 1, RecoveryTimeout: time.Second}, func(context.Context) (elm327.Transport, error) { return a, nil })
+	a.latePrompt, a.injectedTimeout = true, true
+	// Only 010C injects an expired command; healthy commands must tolerate scheduler pauses.
+	r, err := New(Config{Timeout: time.Second, Retries: 1, RecoveryTimeout: time.Second}, func(context.Context) (elm327.Transport, error) { return a, nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,5 +246,26 @@ func TestDisconnectReopensWithPromptAndFiniteRetries(t *testing.T) {
 	report, err = r.Run(t.Context())
 	if !errors.Is(err, os.ErrNotExist) || opens != 3 || report.Status != "failed" {
 		t.Fatalf("retry budget: %d %s %v", opens, report.Status, err)
+	}
+}
+
+// The synthetic adapter models one expired command independently of scheduler
+// pauses. The following read still supplies the late prompt for recovery.
+func TestAdapterInjectsOneTimeoutAndPreservesLatePrompt(t *testing.T) {
+	t.Parallel()
+	a := fixtureAdapter(t)
+	a.failCommand, a.latePrompt, a.injectedTimeout = "010C", true, true
+	if _, err := a.Write(t.Context(), []byte("010C\r")); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	buf := make([]byte, 256)
+	if _, err := a.Read(ctx, buf); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("injected timeout: %v", err)
+	}
+	n, err := a.Read(t.Context(), buf)
+	if err != nil || string(buf[:n]) != "410C0000\r>" {
+		t.Fatalf("late response lost: %q %v", buf[:n], err)
 	}
 }

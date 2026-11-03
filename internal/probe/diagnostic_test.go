@@ -178,9 +178,9 @@ func TestHeaderCleanupFailureIsVisibleAndTimeoutDoesNotWrite(t *testing.T) {
 			a := fixtureAdapter(t)
 			a.responses["ATH1"] = "OK\r>"
 			a.responses["ATH0"] = "NO DATA\r>"
-			cfg := Config{Transport: "ble", Headers: true, ReadPermanent: true, Timeout: 5 * time.Millisecond}
+			cfg := Config{Transport: "ble", Headers: true, ReadPermanent: true, Timeout: time.Second}
 			if timeout {
-				a.failCommand = "0A"
+				a.failCommand, a.injectedTimeout = "0A", true
 			} else {
 				a.responses["0A"] = "83F1104A0000\r>"
 			}

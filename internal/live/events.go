@@ -17,6 +17,7 @@ type signalDef struct {
 }
 
 var definitions = append([]signalDef{
+	{"load_percent", "0104", "%", "ecu_mode01", 35 * time.Second},
 	{"stft_b2_percent", "0108", "%", "ecu_mode01", 15 * time.Second},
 	{"ltft_b2_percent", "0109", "%", "ecu_mode01", 65 * time.Second},
 	{"throttle_percent", "0111", "%", "ecu_mode01", 10 * time.Second},
@@ -100,9 +101,18 @@ func (s *Source) clear(health telemetry.Health, message string, reset bool) {
 	s.latest.RPM, s.latest.SpeedKMH, s.latest.CoolantC, s.latest.VoltageV = nil, nil, nil, nil
 	s.latest.CapturedAt, s.latest.ReceivedAt = time.Time{}, time.Time{}
 	if reset {
+		s.latest.MIL, s.latest.ECUReadings = nil, nil
 		s.latest.Signals = initialSignals()
 		s.latest.Adapter, s.latest.Protocol = "", ""
 		return
+	}
+	if s.latest.MIL != nil {
+		s.latest.MIL.On, s.latest.MIL.DTCCount = nil, nil
+		s.latest.MIL.Status = "temporarily_unavailable"
+	}
+	for k, r := range s.latest.ECUReadings {
+		r.Status = "stale"
+		s.latest.ECUReadings[k] = r
 	}
 	for key, signal := range s.latest.Signals {
 		signal.Value = nil
@@ -114,6 +124,7 @@ func (s *Source) clear(health telemetry.Health, message string, reset bool) {
 }
 
 func (s *Source) command(data probe.RecordingCommand) {
+	s.diagnosticContext(data)
 	s.latest.Diagnostics.Commands++
 	if data.Status != elm327.OK || data.Error != "" || data.Result != nil && (data.Result.Status == "temporarily_unavailable" || data.Result.Status == "invalid_response") {
 		s.latest.Diagnostics.Errors++

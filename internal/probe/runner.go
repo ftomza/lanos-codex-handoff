@@ -10,6 +10,7 @@ import (
 )
 
 type Config struct {
+	MILInterval     time.Duration `json:"mil_interval_ns,omitzero"`
 	ReadPermanent   bool          `json:"read_permanent,omitzero"`
 	ReadFreezeFrame bool          `json:"read_freeze_frame,omitzero"`
 	Headers         bool          `json:"headers,omitzero"`
@@ -38,6 +39,9 @@ type Runner struct {
 }
 
 func New(cfg Config, open func(context.Context) (elm327.Transport, error)) (*Runner, error) {
+	if cfg.MILInterval != 0 && (cfg.MILInterval < time.Second || cfg.MILInterval > 60*time.Second) {
+		return nil, fmt.Errorf("MIL interval must be zero (disabled) or 1s..60s")
+	}
 	if cfg.Transport == "" {
 		cfg.Transport = "serial"
 	}
