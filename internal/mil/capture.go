@@ -50,6 +50,7 @@ type Capture struct {
 	fuel       func(time.Time) (json.RawMessage, error)
 	staleAfter time.Duration
 	latest     telemetry.Snapshot
+	observedAt time.Time
 	active     *Window
 	lastPostAt time.Time
 	postGap    bool
@@ -71,23 +72,35 @@ func NewCapture(writer eventWriter, fuel func(time.Time) (json.RawMessage, error
 
 func incidentName(id uint64) string { return fmt.Sprintf("incident-%016x", id) }
 
-func (c *Capture) Observe(snapshot telemetry.Snapshot) { c.ObserveAt(c.now(), snapshot) }
+func (c *Capture) Observe(snapshot telemetry.Snapshot) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.observeAt(c.now(), snapshot)
+}
 
 func (c *Capture) ObserveAt(now time.Time, snapshot telemetry.Snapshot) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.observeAt(now, snapshot)
+}
+
+func (c *Capture) observeAt(now time.Time, snapshot telemetry.Snapshot) {
 	if c.closed {
 		return
 	}
 	c.finishDue(now)
 	c.latest = snapshot.Clone()
+	c.observedAt = now
 	c.process(now, snapshot, c.monitor.Observe(now, snapshot))
 }
 
 func (c *Capture) Tick(now time.Time) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.closed || c.latest.Source == "" {
+	// The caller samples time before acquiring this lock (and may first tick
+	// the fuel computer). A newer publication can arrive in between. Applying
+	// that old tick to the new snapshot would fabricate a negative age/loss.
+	if c.closed || c.latest.Source == "" || now.Before(c.observedAt) {
 		return
 	}
 	c.finishDue(now)

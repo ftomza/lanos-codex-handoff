@@ -1191,3 +1191,59 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   feat/mil-diagnostics; no main merge. No new hardware/Android/fuel-accuracy claim.
   Next: separately authorized M3.3.7 parked physical acceptance and/or M3.3.5
   offline correlation, then M3.3.6 diagnostic screen; these remain unimplemented.
+
+### 2026-11-06 — Two owner-recorded trips: missing instantaneous fuel analyzed
+
+- Owner reported no fuel display during the first drive and a late appearance
+  during the second. Read fuel-history live parts4/5 and matching MIL parts1/2
+  offline, without opening hardware or changing application/fuel-state settings.
+- JSON/sequence/closed-footer/hash checks passed. Records cover 09:22:48–09:35:19
+  and 09:52:43–09:57:42 Europe/Moscow; about1.6704/1.6713 recorded km. Full evidence
+  and limitations: diagnostics/2026-11-06-fuel-availability.md.
+- All blocked moving snapshots have fresh available IAT<=-30 and the exact
+  reason iat_unavailable_or_out_of_range. First drive:175/175 moving snapshots
+  blocked at -40. A separate53s standstill interval at -6/-7 did produce L/h.
+  Second drive:101/169 moving snapshots blocked; IAT becomes+8 at09:55:51.449
+  and the fuel estimate appears at that exact timestamp, then follows+8..+10.
+- Confirmed experimental IAT opt-in was enabled after model selection. IAT TTL20s
+  and capture intervals~8.7s show the blocked moving samples were fresh. Existing
+  estimator/browser behavior explains the dash; no threshold/default-temperature
+  substitution, model/factor change or full-trip fuel reconstruction performed.
+- Existing offline fuelanalyze agrees: time coverage8.06%/35.10%, covered fuel
+  0.02306/0.08506L; these are partial records, not complete-trip consumption.
+  Both MIL histories start OFF with empty03; no ON/Mode02/0A physical acceptance.
+- Separate follow-up observed: MIL UNKNOWN/OFF_AFTER_GAP with small/negative ages
+  during otherwise live telemetry warrants timestamp-ordering regression work.
+  These events are not sufficient evidence of BLE loss or the cause of fuel gaps.
+- Verification: focused go test ./internal/fuel -count=1 and five web/fuel tests;
+  JSON/sequence/hash/all-blocked-input assertions and both offline CLI reports.
+  No application code changes; private parts and owner scripts remain untouched.
+  Next: raw010F evidence and independent IAT comparison under a separately
+  authorized connection; sensor/wiring/ECU cause remains unconfirmed. This
+  targeted investigation does not implement the deferred M3.3.5 analyzer.
+
+### 2026-11-06 — MIL false UNKNOWN timestamp ordering reproduced and fixed
+
+- Owner confirms the lamp did not illuminate during either short trip. All181
+  distinct successful saved0101 observations report OFF/count0; Mode03 is empty
+  in each session. No ON/automatic Mode02/0A snapshot acceptance is inferred.
+- Found11 intermediate stale UNKNOWN events and two final NO DATA events. One
+  event at09:31:11.433739 evaluates a response captured at09:31:11.434998, about
+  1.26ms later than the saved timer timestamp. Freshness correctly rejects future
+  evidence, but the caller passed an older tick after a newer publication.
+- Deterministic synthetic tests first failed: old ticks invalidated new MIL or
+  core-only evidence and changed a confirmed ON into ON_AFTER_GAP. Capture now
+  samples live observation time under its lock and ignores ticks older than the
+  latest source observation. No TTL relaxation, timestamp substitution in raw
+  inputs, command/transport changes or fuel model/state changes.
+- Regression tests preserve genuine source silence, independent MIL expiry,
+  truly future input and NO DATA -> UNKNOWN -> OFF_AFTER_GAP. Disabling the guard
+  again reproduced all three stale-tick failures; restored guard passes.
+- Verification passed: go test ./... -count=1; go test -race ./internal/mil
+  ./internal/live ./internal/server ./internal/fuel -count=1; make lint (vet and
+  gofmt); git diff --check. Earlier fuel-analysis checks and five web/fuel tests
+  also passed. Historical parts and owner scripts remain untouched.
+- Updated the trip analysis and MIL documentation. Rebuild dashboard before the
+  next run; normal command/flags stay the same. No adapter connection this turn.
+  Next: observe event history in another owner-authorized run and separately
+  investigate raw IAT. Historical UNKNOWN rows are preserved as original evidence.
