@@ -63,7 +63,7 @@ func runWith(ctx context.Context, args []string, output io.Writer, deps dashboar
 	if err != nil {
 		return errors.Join(err, source.Close(), listener.Close(), closeFuel(computer), closeHistory(recorder))
 	}
-	app, err := server.New(server.Config{SourceName: name, StaleAfter: o.staleAfter, Fuel: computer, HistoryDir: historyDir, Recorder: recorder, MIL: milCapture})
+	app, err := server.New(server.Config{SourceName: name, StaleAfter: o.staleAfter, Fuel: computer, HistoryDir: historyDir, Recorder: recorder, MIL: milCapture, MILHistoryDir: o.milHistoryDir})
 	if err != nil {
 		return errors.Join(err, source.Close(), listener.Close(), closeMIL(milCapture), closeFuel(computer), closeHistory(recorder))
 	}

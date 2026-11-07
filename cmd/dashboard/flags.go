@@ -15,6 +15,7 @@ import (
 
 type dashboardOptions struct {
 	milDir                string
+	milHistoryDir         string
 	milInterval           time.Duration
 	recordDir, historyDir string
 	recordInterval        time.Duration

@@ -15,6 +15,7 @@ import (
 )
 
 type Config struct {
+	MILHistoryDir  string
 	MIL            *mil.Capture
 	HistoryDir     string
 	Recorder       *fuelhistory.Recorder
@@ -37,6 +38,7 @@ type Event struct {
 
 // Server keeps one immutable snapshot, independent of client count or speed.
 type Server struct {
+	milHistoryGate   chan struct{}
 	milFailureLogged bool
 	mu               sync.RWMutex
 	latest           telemetry.Snapshot
@@ -61,7 +63,7 @@ func New(config Config) (*Server, error) {
 	if config.SourceName == "" {
 		config.SourceName = "unknown"
 	}
-	return &Server{config: config, latest: telemetry.Snapshot{
+	return &Server{config: config, milHistoryGate: make(chan struct{}, 1), latest: telemetry.Snapshot{
 		Source: config.SourceName, Health: telemetry.Connecting,
 		Message: "waiting for the first source sample",
 	}}, nil

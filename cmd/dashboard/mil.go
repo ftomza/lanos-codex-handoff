@@ -15,10 +15,30 @@ import (
 
 func registerMILFlags(f *flag.FlagSet, o *dashboardOptions) {
 	f.StringVar(&o.milDir, "mil-record-dir", "", "opt-in private MIL event/context JSONL directory; separate SIM/LIVE")
+	f.StringVar(&o.milHistoryDir, "mil-history-dir", "", "read existing MIL history without enabling recording or polling")
 	f.DurationVar(&o.milInterval, "mil-interval", 5*time.Second, "MIL 0101 polling target 1s..60s; requires mil-record-dir")
 }
 
 func validateMILFlags(o *dashboardOptions, explicit map[string]bool) error {
+	if explicit["mil-history-dir"] && strings.TrimSpace(o.milHistoryDir) == "" {
+		return fmt.Errorf("mil-history-dir must be nonempty")
+	}
+	for _, path := range []*string{&o.milDir, &o.milHistoryDir} {
+		if *path == "" {
+			continue
+		}
+		if strings.TrimSpace(*path) == "" {
+			return fmt.Errorf("MIL requires a nonempty directory")
+		}
+		abs, err := filepath.Abs(*path)
+		if err != nil {
+			return err
+		}
+		if abs == o.recordDir || abs == o.historyDir {
+			return fmt.Errorf("mil and fuel history require separate directories")
+		}
+		*path = abs
+	}
 	if o.milDir == "" {
 		if explicit["mil-interval"] || explicit["mil-record-dir"] {
 			return fmt.Errorf("mil options require nonempty mil-record-dir")
@@ -28,14 +48,10 @@ func validateMILFlags(o *dashboardOptions, explicit map[string]bool) error {
 	if strings.TrimSpace(o.milDir) == "" || o.milInterval < time.Second || o.milInterval > time.Minute {
 		return fmt.Errorf("mil requires a directory and interval 1s..60s")
 	}
-	abs, err := filepath.Abs(o.milDir)
-	if err != nil {
-		return err
+	if o.milHistoryDir != "" && o.milHistoryDir != o.milDir {
+		return fmt.Errorf("MIL record and history directories must match")
 	}
-	if abs == o.recordDir || abs == o.historyDir {
-		return fmt.Errorf("mil and fuel history require separate directories")
-	}
-	o.milDir = abs
+	o.milHistoryDir = o.milDir
 	if o.source == "elm327" {
 		o.probe.MILInterval = o.milInterval
 	}
