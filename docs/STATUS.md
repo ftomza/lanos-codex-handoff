@@ -1,6 +1,12 @@
 # Session handoff / status
 
 ## Current state
+2026-11-07 owner-recorded sessions: confirmed MIL OFF -> ON at 16:54:18 Moscow,
+stored and pending P0420, freeze-frame cause P0420. Mode0A returns unsupported
+7F0A11. Today's physical lamp state is not owner-confirmed; no subsequent OFF
+is recorded. Context is retained with gaps, not a complete continuous window.
+See diagnostics/2026-11-07-trip-review.md for evidence and fuel analysis.
+
 2026-10-29 Check Engine follow-up: owner reports steady light and smooth idle;
 physical Go BLE confirms MIL on but empty stored Mode 03 and pending Mode 07
 lists. Cause is unresolved. Finite --read-pending support is implemented on
@@ -1247,3 +1253,60 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   next run; normal command/flags stay the same. No adapter connection this turn.
   Next: observe event history in another owner-authorized run and separately
   investigate raw IAT. Historical UNKNOWN rows are preserved as original evidence.
+
+### 2026-11-07 — Three owner-recorded sessions: P0420 and fuel coverage
+
+- Reviewed fuel parts6–9 (parts7/8 are one rotated session) and MIL parts3–5
+  offline. No vehicle connection, ECU commands/clearing, application/settings
+  changes or modifications of private recordings/owner scripts.
+- All today's JSON/version/session/sequence/footer checks passed, including
+  rotation continuity. Saved SHA-256 and detailed evidence in
+  diagnostics/2026-11-07-trip-review.md. Fuel retention flag concerns an older
+  retired part; all today's sessions are present. MIL retention is untruncated.
+- At16:54:18.224874 MIL reports ON/count1 after OFF at16:54:12.027771. Automatic
+  03/07 both return P0420; frame00 cause also P0420, with RPM925.25, speed0,
+  ECT85, MAP44, STFT-1.5625%, LTFT-11.71875%. Mode0A returns7F0A11 unsupported.
+  This is observed owner-recorded physical-response evidence for those reads,
+  not completion of the full M3.3.7 checklist or confirmation of today's lamp.
+- Incident retains53pre/31post frames; pre_window_retained=true,
+  post_window_retained=false, had_gaps=true. Later frame00 replies are saved
+  independently. Last confirmed ON16:55:11; subsequent UNKNOWN is expired
+  evidence, not proof that MIL switched off.
+- Existing fuelanalyze exits0 for all three sessions:3.0342/20.9959/8.6779km,
+  covered estimated0.22486/2.13377/0.67248L, covered averages12.119/10.267/8.240
+  L/100km, time coverage47.23/97.30/75.29%. All incomplete and experimental;
+  no full-trip reconstruction or real consumption-accuracy claim.
+- First/second sessions still contain-40 IAT. Third-session numeric IAT is
+  +10..+29, but all30 IAT-blocked snapshots exceed20sTTL (age20.005..28.966s).
+  RPM/MAP/source expiry also affects fuel. Saved poll latency worsens before
+  the MIL event. Owner subsequently clarified that an OS process consumed CPU
+  and the entire host became severely unresponsive during this last recording.
+  Host overload supplies context for delayed polls/expiry; no saved CPU profile
+  quantifies its contribution. Do not infer an adapter/ECU defect from these
+  gaps. P0420 evidence and earlier-40IAT observations remain valid observations.
+- First two MIL sessions contain no UNKNOWN. Third has five intermediate
+  UNKNOWN/OFF_AFTER_GAP pairs plus final UNKNOWN, nonnegative MIL ages and
+  evidence of real global-source expiry. Yesterday's negative-age case is not
+  reproduced; this does not prove every freshness/reconnect scenario accepted.
+- Verification: offline CLI reports and targeted JSON/sequence/footer/hash/IAT
+  assertions; documentation diff check. Go/web suites not rerun: no code changes.
+  Missing .codex/START_HERE.md remains absent; root AGENTS and project docs read.
+- Next: preserve codes, confirm physical lamp/current DTC on a separately
+  authorized connection; independently investigate IAT and exhaust/O2/fueling
+  before any catalyst conclusion. Sparse O2 data cannot compare waveforms;
+  IAT-to-P0420 causality is unproven. M3.3.5/6 remain unimplemented.
+
+### 2026-11-07 — M3.3.5 design prepared
+
+- Owner approved proceeding with M3.3.5. Created feat/mil-analysis from
+  feat/mil-diagnostics, preserving the existing trip-review documentation.
+- Inspected MIL envelope/manifest, frame applicability, incident closure and
+  independent late diagnostic rows. Proposed reusable offline milanalysis plus
+  milanalyze text/JSON CLI, without changing live collection or joining fuel
+  sessions by guessed identifiers.
+- Concrete design: superpowers/specs/2026-11-07-mil-analysis-design.md. Includes
+  bounded reader, integrity/coverage, evidence provenance, heuristic thresholds,
+  insufficient-data outcomes and regression/real-recording checks. Spec reviewed
+  for scope, ambiguity and placeholders; documentation whitespace checks pass.
+- Implementation awaits review of the written specification required by the
+  brainstorming skill; no analyzer code or new hardware work in this entry.
