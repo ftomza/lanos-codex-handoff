@@ -156,3 +156,55 @@ test('watchdog redraw retains DTC details and focus when the saved replies have 
   renderDTCs(document, parent, milView(e, 1000, 'open').dtcs); assert.equal(parent.children[0], card);
   e.ecu_readings['03'] = reply(['P0420']); renderDTCs(document, parent, milView(e, 0, 'open').dtcs); assert.notEqual(parent.children[0], card);
 });
+
+test('cached-page restoration invalidates MIL and resumes one Feed/watchdog without archive scans', async t => {
+  const { readFile } = await import('node:fs/promises');
+  const html = await readFile(new URL('./diagnostics.html', import.meta.url), 'utf8');
+  class Node {
+    constructor(id = '') { this.id = id; this.children = []; this.dataset = {}; this.textContent = ''; }
+    append(...children) { this.children.push(...children); }
+    replaceChildren(...children) { this.children = children; }
+    setAttribute() {} removeAttribute() {} addEventListener() {}
+  }
+  const elements = Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(([, id]) => [id, new Node(id)]));
+  const listeners = new Map(), intervals = new Map(), timers = new Map(), sources = [];
+  const window = { addEventListener(name, callback) { const callbacks = listeners.get(name) ?? []; callbacks.push(callback); listeners.set(name, callbacks); } };
+  const dispatch = (name, persisted = true) => { for (const callback of listeners.get(name) ?? []) callback({ persisted }); };
+  let now = 0, serial = 0, archiveRequests = 0;
+  class Source {
+    constructor() { this.listeners = {}; sources.push(this); }
+    addEventListener(name, callback) { this.listeners[name] = callback; }
+    close() { this.closed = true; }
+    send(value) { this.listeners.telemetry({ data: JSON.stringify(value) }); }
+  }
+  const globals = { document: { querySelectorAll: () => Object.values(elements), createElement: () => new Node() }, window, EventSource: Source };
+  const previous = Object.fromEntries(Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  for (const [key, value] of Object.entries(globals)) Object.defineProperty(globalThis, key, { value, configurable: true, writable: true });
+  t.mock.method(performance, 'now', () => now);
+  t.mock.method(globalThis, 'setInterval', callback => { const id = ++serial; intervals.set(id, callback); return id; });
+  t.mock.method(globalThis, 'clearInterval', id => intervals.delete(id));
+  t.mock.method(globalThis, 'setTimeout', callback => { const id = ++serial; timers.set(id, callback); return id; });
+  t.mock.method(globalThis, 'clearTimeout', id => timers.delete(id));
+  t.mock.method(globalThis, 'fetch', async () => { archiveRequests++; return json(catalog([])); });
+  try {
+    await import(`./diagnostics.mjs?lifecycle=${Date.now()}`);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(sources.length, 1); assert.equal(intervals.size, 1); assert.equal(archiveRequests, 1);
+    sources[0].send(event()); assert.equal(elements['mil-state'].textContent, 'ON');
+    dispatch('pageshow', false); assert.equal(sources.length, 1); assert.equal(intervals.size, 1);
+    dispatch('pagehide');
+    assert.equal(elements['mil-state'].textContent, 'UNKNOWN', 'suspension must immediately invalidate the previously open transport');
+    assert.equal(intervals.size, 0); assert.equal(sources[0].closed, true);
+    now = 20000; dispatch('pageshow');
+    assert.equal(elements['mil-state'].textContent, 'UNKNOWN'); assert.equal(sources.length, 2); assert.equal(intervals.size, 1);
+    dispatch('pageshow'); assert.equal(sources.length, 2); assert.equal(intervals.size, 1);
+    for (const callback of intervals.values()) callback(); assert.equal(elements['mil-state'].textContent, 'UNKNOWN');
+    const fresh = event(); fresh.server_time = fresh.captured_at = fresh.received_at = '2026-11-07T12:00:20Z'; fresh.mil.captured_at = fresh.mil.received_at = fresh.server_time;
+    sources[1].send(fresh); assert.equal(elements['mil-state'].textContent, 'ON');
+    now += 3000; for (const callback of intervals.values()) callback(); assert.equal(elements['mil-state'].textContent, 'UNKNOWN');
+    assert.equal(archiveRequests, 1, 'restoration, SSE and watchdog must not scan archives');
+  } finally {
+    dispatch('pagehide');
+    for (const key of Object.keys(globals)) { if (previous[key]) Object.defineProperty(globalThis, key, previous[key]); else delete globalThis[key]; }
+  }
+});

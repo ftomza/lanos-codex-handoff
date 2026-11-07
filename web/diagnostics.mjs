@@ -110,8 +110,16 @@ function start() {
   el['mil-history-session'].addEventListener('change', () => history.select(el['mil-history-session'].value));
   el['mil-history-refresh'].addEventListener('click', () => history.refresh()); el['mil-history-cancel'].addEventListener('click', () => history.cancel());
   el['mil-retry'].addEventListener('click', () => feed.start());
-  const watchdog = setInterval(renderCurrent, 250);
-  window.addEventListener('pagehide', () => { feed.stop(); history.cancel(); clearInterval(watchdog); });
+  let watchdog = setInterval(renderCurrent, 250);
+  window.addEventListener('pagehide', () => {
+    feed.stop(); transport = { status: 'disconnected', attempt: 0 }; renderCurrent();
+    history.cancel(); clearInterval(watchdog); watchdog = null;
+  });
+  window.addEventListener('pageshow', event => {
+    if (!event.persisted || watchdog !== null) return;
+    transport = { status: 'connecting', attempt: 0 }; renderCurrent();
+    feed.start(); watchdog = setInterval(renderCurrent, 250);
+  });
   renderCurrent(); feed.start(); history.refresh();
 }
 if (typeof document !== 'undefined') start();
