@@ -1368,3 +1368,22 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
 - README, PLAN, MIL_DIAGNOSTICS and NEXT_CONNECTION include offline commands and
   limits. Sensor cause, true fuel accuracy, catalyst condition, CPU vs BLE delay
   attribution and Android are not established. M3.3.6 and full M3.3.7 remain next.
+
+### 2026-11-07 — M3.3.6 diagnostics screen design prepared
+
+- Owner requested continuing after M3.3.5. Created feat/mil-dashboard from
+  1cb2909, preserving owner scripts. Read existing SSE/freshness, history UI,
+  server/CLI wiring and completed analyzer contracts. No product-code changes.
+- Proposed a separate diagnostics page in the existing style: current MIL and
+  timestamped DTC replies above saved sessions/events/findings, with report and
+  incident-context export. Read-only --mil-history-dir permits viewing saved
+  LIVE data with a SIM server and no adapter connection; labels stay separate.
+- Design: superpowers/specs/2026-11-07-mil-dashboard-design.md. Includes bounded
+  HTTP report/export, one analysis at a time, no background archive scan per SSE,
+  independent live freshness, partial evidence, safe DOM and unchanged ECU/fuel.
+- Builder check identified one contract ambiguity, resolved as an implementation
+  choice: recoverable reader issues return200/incomplete with surviving evidence;
+  fatal manifest/open/rotation errors return409. No owner-only open questions.
+- Whitespace/placeholder checks passed; application tests not rerun for this
+  design-only change. Written design awaits approval before implementation.
+  M3.3.6 remains unimplemented; no hardware, dependency or format changes.
