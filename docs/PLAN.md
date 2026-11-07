@@ -444,7 +444,11 @@ remain pending; prior owner totals are not a recoverable historical time series.
 
 **M3.3.4** — диагностические снимки и JSONL. Реализовано и проверено offline 2026-11-03, opt-in `--mil-record-dir`; инструкции в `docs/MIL_DIAGNOSTICS.md` и `docs/NEXT_CONNECTION.md`.
 
-**M3.3.5** — offline-корреляция и диагностика аномалий. Следующий этап, пока не реализован.
+**M3.3.5** — реализован и проверен offline 2026-11-07 в `feat/mil-analysis`:
+read-only MIL reader, библиотека `milanalysis`, CLI `milanalyze` (текст/JSON),
+события/DTC/freeze frame, качество записи и эвристики с доказательствами и
+`insufficient_data`. Проверен на сохранённом событии P0420; аппаратного
+подключения не было. Инструкции и ограничения — `docs/MIL_DIAGNOSTICS.md`.
 
 **M3.3.6** — интерфейс Dashboard и тесты. Отдельный экран диагностики пока не реализован; данные/статус доступны через API/SSE.
 

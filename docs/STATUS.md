@@ -1,6 +1,12 @@
 # Session handoff / status
 
 ## Current state
+M3.3.5 is implemented and offline-verified on `feat/mil-analysis`: bounded
+read-only MIL archive reader, reusable evidence/heuristic analysis, and
+`milanalyze` Russian text/versioned JSON reports. Current saved P0420 replay
+preserves partial context, final UNKNOWN and independent late freeze replies.
+No transport/polling/fuel changes or new vehicle connection. M3.3.6 remains next.
+
 2026-11-07 owner-recorded sessions: confirmed MIL OFF -> ON at 16:54:18 Moscow,
 stored and pending P0420, freeze-frame cause P0420. Mode0A returns unsupported
 7F0A11. Today's physical lamp state is not owner-confirmed; no subsequent OFF
@@ -56,6 +62,11 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
+Next MIL milestone is M3.3.6: use the offline report on a diagnostics screen.
+M3.3.5 commands/limits are in MIL_DIAGNOSTICS.md; no more recording is required
+to use it. Separate physical IAT/P0420 investigation and full M3.3.7 acceptance
+remain independently authorized work. Historical next-action entries follow.
+
 Owner approved merging fix/ecu-standby into main. The merged tree passed fresh
 offline checks. Follow NEXT_CONNECTION.md for a separately agreed parked ignition
 cycle test; no physical vehicle was accessed for this fix.
@@ -1310,3 +1321,50 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   for scope, ambiguity and placeholders; documentation whitespace checks pass.
 - Implementation awaits review of the written specification required by the
   brainstorming skill; no analyzer code or new hardware work in this entry.
+
+### 2026-11-07 — M3.3.5 implemented: offline MIL evidence and anomaly reports
+
+- Owner approved the written specification and implementation. Delivery stays
+  on feat/mil-analysis, based on feat/mil-diagnostics. No dependency/Go version,
+  live schedule/transport, fuel model/state or saved format changes. No hardware
+  connection, ECU command or clearing; owner scripts remain excluded.
+- Added milstore.Read: bounded read-only streaming with private regular-file
+  manifest checks, session selection, cross-rotation sequence/elapsed/closure
+  validation, typed payload checks and explicit corruption/retention/boundary
+  issues. Tests compare archive hashes, mtimes, directory contents and no lock.
+- Added milanalysis with bounded per-incident context, scoped MIL history and
+  separate stored/pending/permanent/frame00 evidence. Unassociated late replies
+  remain separate; contradictory successful details or absent decoded lists
+  become issues, never empty success or confirmed P0420. Error footer reason
+  and text are retained; closed files can still describe failed recording.
+- Freshness/unit/support-aware heuristics cover IAT, MAP context, trims, O2,
+  ECT, adapter supply and quality. Capture/generation dedup and continuity
+  boundaries prevent repeated snapshots or gaps becoming new measurements.
+  Every rule has an explicit insufficient-data outcome. Findings retain full
+  observation bounds/counts, up to8 evidence/counterexample samples and missing
+  data/next checks; thresholds are observational heuristics, not diagnoses.
+- Added milanalyze text/JSON CLI and build target. Required --input; optional
+  session and session-scoped incident filter; errors go to stderr. Text uses
+  Moscow time, JSON is deterministic. No source/transport packages appear in
+  go list -deps ./cmd/milanalyze. Context timeout30s and cancellation supported.
+- TDD reproduced missing feature behavior and review regressions: stale/future/
+  unsupported/wrong-unit input, cached values across gaps and A->B->A generation,
+  sparse vs dense O2, bad successful DTC details, unavailable polls, failed
+  footer, missing rule checks, bounded evidence and explicit frame truncation.
+  Reader and analyzer passed independent spec-compliance and quality reviews;
+  reported issues were reproduced, corrected and rechecked.
+- Fresh verification passed: go test ./... -count=1; go test -race ./... -count=1;
+  make lint (go vet/gofmt); make test-web (26 tests); make build-milanalyze and
+  final go build -o bin/milanalyze ./cmd/milanalyze; git diff --check.
+  Build target initially needed sandbox approval for the Go cache, then passed.
+- Offline binary acceptance on saved session7f688937053f9f030d0f6bbfc3477a07:
+  13events,14diagnostics,84unique context frames, P0420/empty initial03,
+  unsupported0A, incomplete post, insufficient O2, final UNKNOWN and4independent
+  late frame00 replies preserved. Repeated JSON byte-identical; input hashes
+  and mtimes unchanged. All6currently retained MIL sessions read without issues;
+  a sixth closed part appeared externally during development, without changing
+  the earlier three-trip manual analysis. Artifacts:
+  /private/tmp/lanos-milanalyze-acceptance-a8lwr_1n/report.txt and report.json.
+- README, PLAN, MIL_DIAGNOSTICS and NEXT_CONNECTION include offline commands and
+  limits. Sensor cause, true fuel accuracy, catalyst condition, CPU vs BLE delay
+  attribution and Android are not established. M3.3.6 and full M3.3.7 remain next.

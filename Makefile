@@ -29,3 +29,7 @@ fmt:
 .PHONY: build-fuelanalyze
 build-fuelanalyze:
 	go build -o bin/fuelanalyze ./cmd/fuelanalyze
+
+.PHONY: build-milanalyze
+build-milanalyze:
+	go build -o bin/milanalyze ./cmd/milanalyze

@@ -87,9 +87,23 @@ The shared connection monitors 0101, captures 60s before/30s after an observed
 MIL-on event and queues read-only DTC/freeze-frame requests. Already-on MIL and
 lost/stale data are explicit. Fuel totals are read without advancing accounting.
 Recording status appears in `/api/snapshot` as `mil_recording`; JSONL and raw
-diagnostics are saved privately. The diagnostics screen and correlation analysis
-are later milestones. See [MIL_DIAGNOSTICS.md](docs/MIL_DIAGNOSTICS.md) and
-[next connection](docs/NEXT_CONNECTION.md); Mode02/0A/ATH1 remain physically untested.
+diagnostics are saved privately. M3.3.5 now analyzes saved incidents offline;
+the diagnostics screen remains M3.3.6. See [MIL_DIAGNOSTICS.md](docs/MIL_DIAGNOSTICS.md)
+and [next connection](docs/NEXT_CONNECTION.md). Owner recordings on 2026-11-07
+contain P0420 stored/pending/frame00 and an unsupported Mode0A reply; ATH1 and
+the remaining physical acceptance checklist are untested.
+
+```sh
+make build-milanalyze
+./bin/milanalyze --input=data/mil-events/live
+./bin/milanalyze --input=data/mil-events/live --json
+```
+
+The offline report preserves MIL transitions, separate diagnostic statuses and
+freeze-frame context, input freshness, gaps and bounded evidence for heuristic
+findings. It states insufficient data for sparse O2/short IAT histories and does
+not diagnose a failed component. Use `--session=<saved-id>` to select a session;
+`--incident=<saved-id>` additionally requires `--session`. No adapter is opened.
 
 ```sh
 make build-dashboard
@@ -358,6 +372,9 @@ remain unresolved; longer endurance/reconnect are untested. These recorder sessi
 - `internal/fuel`: estimates, monotonic trip/coverage, local state, calibration and coherent diagnostics.
 - `internal/fuelhistory`: bounded recording and shared streaming offline analysis.
 - `cmd/fuelanalyze`: saved-history CLI; no vehicle/state access.
+- `internal/milstore`: bounded private MIL recording and read-only archive reader.
+- `internal/milanalysis`: offline evidence, incident quality and heuristic findings.
+- `cmd/milanalyze`: text/JSON MIL reports from saved archives; no vehicle access.
 - `internal/server`: HTTP transport and telemetry distribution.
 - `web`: embedded HTML, CSS, JavaScript; no third-party assets.
 - `internal/elm327`: read-only allowlist, framing, recovery, parsers and decoders.
