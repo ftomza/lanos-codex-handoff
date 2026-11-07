@@ -1387,3 +1387,57 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
 - Whitespace/placeholder checks passed; application tests not rerun for this
   design-only change. Written design awaits approval before implementation.
   M3.3.6 remains unimplemented; no hardware, dependency or format changes.
+
+### 2026-11-07 — M3.3.6 implemented: dashboard diagnostics and read-only history
+
+- Owner approved the written design. Implemented on feat/mil-dashboard from
+  feat/mil-analysis; no merge to main. No vehicle connection, new ECU commands,
+  polling changes, dependencies/Go version, fuel model/state or archive format
+  changes. Owner scripts and private raw recordings remain outside commits.
+- Added /diagnostics.html with current MIL ON/OFF/UNKNOWN, validated 0101 count,
+  independent MIL/source TTL and transport freshness. Monotonic watchdog ages
+  evidence without SSE; source/generation changes and future/invalid replies
+  cannot silently display cached MIL as live. Last success is explicitly scoped
+  to this page opening. Stored/pending/permanent replies have their own times,
+  distinct empty/unsupported/unavailable/invalid/no-query states, and historical
+  labels. Unexplained ON retains the required warning, never “no errors”.
+- Read-only milstore.List and GET /api/mil/history/{sessions,report,incident}
+  provide validated catalog, existing milanalysis report and exact incident
+  selection with envelope/file/line provenance. Independent late replies remain
+  outside incident exports. Recoverable corruption retains evidence as incomplete;
+  fatal archive errors are sanitized. Known query keys/IDs only, one heavy request
+  per server without queue or telemetry lock, 8s context and 8MiB buffered output.
+- --mil-history-dir enables reading without Capture/writer/polling or directory
+  creation; --mil-record-dir implies the same history directory. Fuel directories
+  cannot overlap. UI separates current SIM from archive LIVE. Opening loads catalog
+  and latest report once; subsequent archive work is manual. Browser uses 10s
+  timeout, cancellation and request epochs; selection/error removes old reports
+  and export links. Saved text uses DOM/textContent. Events, DTC/freeze replies,
+  partial windows, findings/evidence/limits and insufficient_data are accessible.
+- TDD and independent task review covered HTTP/flags/immutability/concurrency,
+  stale/future/source/generation/DTC cases, request races/limits and safe DOM.
+  Review found pagehide stopped Feed/watchdog without pageshow recovery. Node
+  and actual Chrome-renderer lifecycle regression reproduced ON instead of
+  UNKNOWN. Fixed immediate invalidation on hide and one bounded Feed/watchdog
+  restart on persisted show, without archive rescan; regression now passes.
+- Verification passed: go test ./... -count=1; go test -race ./... -count=1;
+  make lint (vet/gofmt); make test-web (50/50); make build-dashboard (including
+  native BLE helper); make build-milanalyze; git diff --check. Full Go/race/lint
+  ran before the browser-only lifecycle fix; final web tests and dashboard build
+  ran afterward. Go-cache sandbox denials were rerun with required approval.
+- Chrome156 offline acceptance used the built SIM/fuel-off server, a synthetic
+  LIVE archive and saved session7f688937053f9f030d0f6bbfc3477a07. Verified P0420,
+  13 events/14 diagnostics, incomplete incident export excluding independent
+  replies, navigation/assets, SIM/LIVE labels, silent-SSE expiry, persisted
+  lifecycle events, disabled/empty/missing history and clean runtime. Input
+  hashes, mtimes and listings unchanged. Visually inspected 1280×800/390×844
+  pages, event/rule details and expanded raw DTC; no horizontal page overflow.
+  QA artifacts: /private/tmp/lanos-mil-dashboard-qa.1hSJ9G (local only).
+- README, PLAN, MIL_DIAGNOSTICS and NEXT_CONNECTION updated. Offline command:
+  ./bin/dashboard --source=sim --fuel=off --mil-history-dir=data/mil-events/live
+  then /diagnostics.html. Existing live/fuel launch remains documented. No
+  Android-device acceptance, physical M3.3.7 or new compatibility claim; actual
+  browser Back/Forward cache admission was not tested, only persisted lifecycle
+  handling. Next: separately authorized parked-car M3.3.7, physical lamp/current
+  codes and independent IAT investigation; do not clear DTC or infer catalyst
+  condition from sparse O2 evidence.
