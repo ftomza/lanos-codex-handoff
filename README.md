@@ -79,6 +79,37 @@ timestamps are shown in the browser's local timezone (hover for the UTC timestam
 These are host timestamps, not ECU capture times. These instruments do not
 replace the vehicle's factory instruments.
 
+## Diagnostics screen (M3.3.6)
+
+Open [Diagnostics](http://127.0.0.1:8080/diagnostics.html) from the instruments
+or trip analytics. Current Check Engine uses the existing shared SSE source:
+ON/OFF require fresh source and independent MIL timestamps; expired, future,
+unavailable or disconnected readings become UNKNOWN. DTC replies keep their own
+status and timestamps. Last successful MIL time refers only to this page opening.
+
+To view saved LIVE evidence without connecting an adapter:
+
+```sh
+make build-dashboard
+./bin/dashboard --source=sim --fuel=off --mil-history-dir=data/mil-events/live
+```
+
+Current SIM and archive LIVE remain separately labelled. Reading history does
+not enable MIL polling, recording or hardware access. The existing live/fuel
+launch command and fuel state remain unchanged. `--mil-record-dir` also exposes
+that directory as history; if both directory flags are given they must match.
+MIL and fuel directories must be separate.
+
+The page loads the catalog and latest saved session once, then reads only after
+selection or manual refresh. Active sessions, retention and damaged rows retain
+incomplete flags, surviving evidence and reader issues. Findings show confidence,
+evidence provenance, missing data and next checks; sparse O2 does not diagnose a
+catalyst. JSON report and exact session/incident snapshot links are read-only
+validated exports, not full raw archives. Requests have an 8-second server limit,
+a 10-second browser timeout, an 8 MiB response limit and one heavy request at a
+time. Busy/expired/changed archives require explicit retry. No clear/write controls.
+Desktop tests do not establish physical Android or hardware compatibility.
+
 ## Live dashboard (M4)
 
 MIL context recording (M3.3.1–M3.3.4, offline verified) is opt-in:
@@ -88,7 +119,7 @@ MIL-on event and queues read-only DTC/freeze-frame requests. Already-on MIL and
 lost/stale data are explicit. Fuel totals are read without advancing accounting.
 Recording status appears in `/api/snapshot` as `mil_recording`; JSONL and raw
 diagnostics are saved privately. M3.3.5 now analyzes saved incidents offline;
-the diagnostics screen remains M3.3.6. See [MIL_DIAGNOSTICS.md](docs/MIL_DIAGNOSTICS.md)
+M3.3.6 adds the read-only `/diagnostics.html` screen. See [MIL_DIAGNOSTICS.md](docs/MIL_DIAGNOSTICS.md)
 and [next connection](docs/NEXT_CONNECTION.md). Owner recordings on 2026-11-07
 contain P0420 stored/pending/frame00 and an unsupported Mode0A reply; ATH1 and
 the remaining physical acceptance checklist are untested.
