@@ -110,7 +110,7 @@ func (s *recording) waitECU(ctx context.Context) error {
 	if err := s.emit("standby", Standby{Reason: "ecu"}); err != nil {
 		return err
 	}
-	for {
+	for checks := 0; ; checks++ {
 		if err := s.r.wait(ctx, standbyInterval); err != nil {
 			return err
 		}
@@ -125,6 +125,12 @@ func (s *recording) waitECU(ctx context.Context) error {
 		ready, err := s.ecuReady(ctx)
 		if err != nil || ready {
 			return err
+		}
+		if checks == 2 {
+			// A responsive adapter can retain an unusable ECU protocol session
+			// across ignition changes. Reinitialize only after sparse checks,
+			// while the completed responses still establish synchronization.
+			return s.emit("recovery", map[string]string{"phase": "ecu_reinitialize"})
 		}
 	}
 }

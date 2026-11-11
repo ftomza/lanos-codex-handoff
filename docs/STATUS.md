@@ -1441,3 +1441,36 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   handling. Next: separately authorized parked-car M3.3.7, physical lamp/current
   codes and independent IAT investigation; do not clear DTC or infer catalyst
   condition from sparse O2 evidence.
+
+### 2026-11-11 — Ignition-cycle and Mac sleep recovery investigation
+
+- Reviewed today's fuel parts c/d and MIL8/9 offline. Both sessions/footers and
+  sequences validate; original hashes/mtimes/sizes unchanged. No adapter access,
+  application/fuel-state changes, ECU commands or clearing. Owner scripts untouched.
+- First session: initial ECU standby recovers09:01:30. After RPM0 at09:03:41,
+  standby starts09:03:44; ATI stays successful but sampled0100 remains unavailable.
+  Owner confirms the engine was running again and dashboard restart was needed.
+  Restart09:05:17 restores data09:05:30. waitECU only repeats ATI/0100 without
+  escalating to reinitialization. Exact ECU/ELM failure cause is not established.
+- Second session: engine reaches RPM0 and ECU standby09:19:01. Host wall/elapsed
+  divergence311.667s matches owner-confirmed lid close/sleep. ATI times out after
+  wake; synchronization attempt ends09:24:42 with native Write and notification
+  unsubscribe timeouts, helper exit1. Source permanently reports restart-required
+  until09:31:25; counters remain3177commands/17errors/2gaps/1recovery. Another
+  128.374s clock divergence is observed, without separate owner attribution.
+- Traced terminal outcome through nativeConnection.Close, finishConnection,
+  parent BLE error and Stream transient classification. Generic cleanup failures
+  intentionally terminate today; increasing retries alone does not fix this path.
+  Required repair scopes: bounded ECU-standby escalation and explicit sleep/native
+  timeout recovery after fully reaping the helper, preserving fatal error evidence,
+  prompt synchronization, freshness, one source and persistent fuel totals.
+- Both sessions retain alreadyON/count1 with stored/pending/freeze P0420, Mode0A
+  unsupported, then UNKNOWN on lost source evidence; no confirmed lamp-off/new
+  OFF-to-ON. Physical lamp state not checked. Second drive8.8909km, covered model
+  estimate0.84787L/9.5348L100km, coverage71.47%; not measured consumption accuracy.
+- Four offline fuelanalyze/milanalyze reports exit0; focused existing probe/BLE/
+  helper recovery and cleanup tests pass. No full Go/race/web rerun for this
+  analysis/documentation-only change. Missing .codex/START_HERE.md remains absent.
+  Detailed timeline, evidence, hashes and next regressions:
+  diagnostics/2026-11-11-reconnect-review.md. No application repair/hardware
+  acceptance claimed; next physical checks require separate parked-car approval.
