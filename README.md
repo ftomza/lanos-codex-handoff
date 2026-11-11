@@ -172,6 +172,10 @@ ignition may be off; ignition position is not measured. Three failed core rounds
 enter standby; one unavailable PID or measured zero RPM does not. Standby checks
 ATI/0100 after each 10s pause, with command timeouts potentially extending that
 interval. Fresh discovery/new generation is required before resuming values.
+After three unsuccessful standby checks with a responsive adapter, LIVE repeats
+initialization/discovery on the synchronized connection. Persistent ECU absence
+therefore causes sparse reinitialization, without a full PID/DTC scan until the
+ECU actually answers. The delay includes three 10s pauses plus command timeouts.
 Old values/instantaneous fuel disappear; trip totals remain and gaps are marked.
 
 Default `--retries=2` gives two additional attempts **per reconnect burst**
@@ -185,8 +189,11 @@ unsupported initialization, unknown errors and actual helper cleanup failures
 remain terminal, with HTTP available as LIVE/disconnected and the error shown.
 The browser reconnect button only retries SSE/server access.
 Rebuild both dashboard and helper together. Expected BLE disconnect/target-not-found
-events permit recovery only after clean helper shutdown; forced termination or
-cleanup failures remain explicit. Native scan ends before the parent's hard
+events permit recovery only after helper completion. The pinned native backend's
+recognized Write/notification timeouts also permit retry: their final event
+retains any recognized unsubscribe timeout, and the old helper must exit cleanly
+and be reaped before another opens. Unknown cleanup errors, normal-shutdown
+cleanup timeouts and nonzero/forced exits remain explicit failures. Native scan ends before the parent's hard
 connection deadline where possible. Vgate sleep/wake behavior remains unverified.
 Stop the dashboard when diagnostics are finished; waiting continues read-only
 checks and does not guarantee adapter sleep or prevent battery drain.

@@ -1474,3 +1474,42 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   Detailed timeline, evidence, hashes and next regressions:
   diagnostics/2026-11-11-reconnect-review.md. No application repair/hardware
   acceptance claimed; next physical checks require separate parked-car approval.
+
+### 2026-11-11 — Ignition/host-sleep recovery repairs implemented offline
+
+- Owner authorized both repair scopes from the investigation. Created
+  fix/ignition-sleep-recovery from29c2106, preserving owner scripts. No adapter
+  connection, dependency/Go version, new ECU command, fuel model/state/reset or
+  archive-format changes. Design and implementation plan are under superpowers/.
+- Continuous Stream now reinitializes the synchronized existing ECU session after
+  3 negative standby0100 checks with valid ATI, each separated by10s. Emits
+  ecu_reinitialize recovery and starts a new segment; full PID/DTC scan still
+  requires a valid bitmap. Initial availability resumes sooner; persistent absence
+  stays sparse/cancelable. Finite Run/Record loops remain bounded and unchanged.
+- Added blewire.ErrTimeout and timeout IPC code. Exact private/plain timeout
+  messages from pinned native Write and subscribe/unsubscribe calls are mapped
+  only at those operation boundaries; unknown/wrapped/permission causes are not
+  guessed from substrings. Native documents checked before targeted library source.
+- Helper failed writes now use the final error after cleanup, avoiding an early
+  untyped ack race. Recognized transient primary error plus timeout-only cleanup
+  can exit successfully with both causes in the final event. Parent retains typed
+  timeout, verifies/reaps the old child before Stream reconnects. Mixed/unknown
+  cleanup, normal-shutdown cleanup timeout, output failure and abnormal helper
+  exit remain errors. Existing prompt recovery still blocks writes until safe.
+- TDD RED reproduced indefinite ECU wait, untyped native timeout, failed-ack race,
+  compound timeout terminal stop and Stream failing to retry with retries0.
+  Additional RED caught overly broad acceptance of mixed cleanup; narrowed to
+  timeout-only leaves. Tests cover reinitialization without DTC storms, cancellation,
+  operation-specific matching, late final timeout after command deadline, output
+  errors, clean/failed child exit, close-before-reopen and joined fatal causes.
+- Fresh checks pass: go test ./... -count=1; go test -race ./... -count=1;
+  make lint; make test-web(50/50); make build-dashboard build-obdprobe
+  build-milanalyze. Native helper compiled on macOS with CGO. Sandbox-denied Go
+  cache checks were rerun with required approval. Formatting uses gofmt;
+  goimports is unavailable on PATH; no tool/dependency installation was needed.
+- README, PLAN and NEXT_CONNECTION describe new escalation and narrow timeout
+  exception, plus separate awake ignition-cycle and host sleep/wake checks.
+  Physical recovery, adapter wake, delivery of outstanding prompt and Android
+  remain unverified. No blind ATZ/prompt bypass. Independent branch review and
+  final delivery follow these checks; original recorded evidence remains separate
+  from synthetic regressions.

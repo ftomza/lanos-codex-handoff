@@ -1,6 +1,6 @@
 # Ignition and sleep recovery implementation plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Recover continuous LIVE from the two owner-observed November11 failures.
 
@@ -39,16 +39,16 @@ Preserve sequential ownership, child reaping and ELM prompt synchronization.
 **Interfaces:** existing recording.waitECU/context and runLive segment restart;
 produce recovery event phase ecu_reinitialize, no public API changes.
 
-- [ ] Write test TestStreamStandbyReinitializesUnresponsiveECUSession: real
+- [x] Write test TestStreamStandbyReinitializesUnresponsiveECUSession: real
   Runner/ELM fixture stays unavailable until second ATSP0, valid identity,3
   sparse negative checks; assert capabilities resume on same transport/new
   generation, no prior DTC scan and cancellation closes cleanly.
-- [ ] Write repeated-absence/cancel regression: bounded10s pauses,3 checks per
+- [x] Write repeated-absence/cancel regression: bounded10s pauses,3 checks per
   initialization, no DTC readings, no extra transport open or writes after cancel.
-- [ ] Run go test ./internal/probe -run 'TestStreamStandbyReinit' -count=1;
+- [x] Run go test ./internal/probe -run 'TestStreamStandbyReinit' -count=1;
   expect RED due to missing reinitialization/resume.
-- [ ] Implement3-negative escalation through existing new-segment initialization.
-- [ ] Run go test ./internal/probe ./internal/live ./internal/fuel -count=1;
+- [x] Implement3-negative escalation through existing new-segment initialization.
+- [x] Run go test ./internal/probe ./internal/live ./internal/fuel -count=1;
   expect all pass. Commit only Task1 files plus approved design/plan/investigation.
 
 ### Task 2: Native timeout typing, helper completion and parent retry
@@ -62,18 +62,18 @@ standby_reinit_test.go.
 native primary/cleanup text; parent Device operations return typed errors after
 final event, Close verifies completion; Stream recognizes new sentinel.
 
-- [ ] Write failing table tests for exact operation-specific native mapping,
+- [x] Write failing table tests for exact operation-specific native mapping,
   unknown/permission/wrapped lookalikes, compound timeout cleanup, normal-shutdown
   cleanup timeout, output/unknown cleanup failure; use real Serve/output stream.
-- [ ] Write parent subprocess scenario final timeout: assert Write error typed,
+- [x] Write parent subprocess scenario final timeout: assert Write error typed,
   text retained, Close reaps successful child; nonzero exit remains fatal.
-- [ ] Write Stream retries0 regression using transient timeout then healthy
+- [x] Write Stream retries0 regression using transient timeout then healthy
   transport with pending prompt; assert closure before reopen,10s idle and
   subsequent capabilities. Add joined unknown cause remains terminal.
-- [ ] Run focused new tests; observe expected RED before product implementation.
-- [ ] Implement operation-boundary normalization, combined transient policy,
+- [x] Run focused new tests; observe expected RED before product implementation.
+- [x] Implement operation-boundary normalization, combined transient policy,
   no failed-write ack, final timeout mapping and Stream classification.
-- [ ] Run go test ./internal/blehelper ./internal/ble ./internal/probe -count=1;
+- [x] Run go test ./internal/blehelper ./internal/ble ./internal/probe -count=1;
   expect all pass, including existing generic cleanup-fatal tests. Build native
   helper to validate darwin wrapper. Commit Task2 files.
 
@@ -82,10 +82,10 @@ final event, Close verifies completion; Stream recognizes new sentinel.
 **Files:** docs/PLAN.md, docs/STATUS.md, docs/NEXT_CONNECTION.md, README.md;
 optional focused Source integration tests only if existing coverage has a gap.
 
-- [ ] Run go test ./... -count=1; go test -race ./... -count=1; make lint;
+- [x] Run go test ./... -count=1; go test -race ./... -count=1; make lint;
   make test-web; make build-dashboard; make build-obdprobe; make build-milanalyze.
   Expect all pass; rerun sandbox-denied required commands with approval.
-- [ ] Update documentation with3-check escalation, recognized native timeout
+- [x] Update documentation with3-check escalation, recognized native timeout
   recovery, limitations and separate parked ignition/sleep acceptance. Record
   tests and input immutability in STATUS; no hardware acceptance claims.
 - [ ] Independent whole-branch review; repair material findings with RED/GREEN.

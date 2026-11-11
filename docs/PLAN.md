@@ -66,6 +66,17 @@ standby hides instantaneous values and preserves fuel totals with generation
 gaps. The approved standby spec supersedes M4's old terminal total retry budget.
 Physical ignition-cycle/sleep/reconnect acceptance remains separate and pending.
 
+M4 recovery repair2026-11-11 in fix/ignition-sleep-recovery: after3 sparse
+negative standby checks, repeat synchronized initialization/discovery. Recognized
+native Write/notification timeouts retain typed IPC/cleanup evidence and can
+retry after the old helper exits successfully and is reaped. Unknown cleanup,
+permission/protocol failures and abnormal child exits remain terminal. No change
+to ECU command allowlist, finite retry bounds, fuel totals or prompt recovery.
+Go/race/lint, web50/50 and native builds pass offline. The owner-recorded failures
+and next separate awake-ignition/sleep-wake acceptance are documented in
+diagnostics/2026-11-11-reconnect-review.md and NEXT_CONNECTION.md; no new physical
+recovery acceptance is claimed.
+
 ## M5 — Android path
 - First validate browser-based UI on Teclast P85 over LAN; assess fullscreen/kiosk, sleep/wake, brightness, thermal/power behavior.
 - Choose WebView wrapper or Kotlin native app based on measured performance and Bluetooth support. For direct SPP on Android, native BluetoothSocket and BLUETOOTH_CONNECT permission are needed; web browser cannot directly use Classic SPP.
