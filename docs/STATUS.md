@@ -1510,6 +1510,8 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
 - README, PLAN and NEXT_CONNECTION describe new escalation and narrow timeout
   exception, plus separate awake ignition-cycle and host sleep/wake checks.
   Physical recovery, adapter wake, delivery of outstanding prompt and Android
-  remain unverified. No blind ATZ/prompt bypass. Independent branch review and
-  final delivery follow these checks; original recorded evidence remains separate
-  from synthetic regressions.
+  remain unverified. No blind ATZ/prompt bypass. Independent whole-branch review
+  approved the offline implementation without findings. Built SIM/fuel-off HTTP
+  smoke passed snapshot/three pages and graceful SIGTERM exit0. Four recorded
+  source hashes/mtimes/sizes remain unchanged. Original recorded evidence remains
+  separate from synthetic regressions; delivery stays on the feature branch.

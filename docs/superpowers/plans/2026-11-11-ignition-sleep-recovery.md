@@ -88,5 +88,5 @@ optional focused Source integration tests only if existing coverage has a gap.
 - [x] Update documentation with3-check escalation, recognized native timeout
   recovery, limitations and separate parked ignition/sleep acceptance. Record
   tests and input immutability in STATUS; no hardware acceptance claims.
-- [ ] Independent whole-branch review; repair material findings with RED/GREEN.
+- [x] Independent whole-branch review; repair material findings with RED/GREEN.
   Diff check, explicit-file commit, push feature branch; no automatic main merge.
