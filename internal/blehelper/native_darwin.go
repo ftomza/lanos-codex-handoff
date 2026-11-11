@@ -89,7 +89,7 @@ func OpenNative(ctx context.Context, name string, notify func([]byte), lost func
 	}
 	n.rx, n.tx = chars[0], chars[1]
 	if err := n.rx.EnableNotifications(notify); err != nil {
-		return nil, fmt.Errorf("subscribe Vgate RX: %w", err)
+		return nil, fmt.Errorf("subscribe Vgate RX: %w", nativeError("subscribe", err))
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -138,14 +138,15 @@ func (n *nativeConnection) Write(ctx context.Context, data []byte) (int, error) 
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
-	return n.tx.Write(data)
+	written, err := n.tx.Write(data)
+	return written, nativeError("write", err)
 }
 
 func (n *nativeConnection) Close() error {
 	n.once.Do(func() {
 		n.closing.Store(true)
 		if n.rx != (bluetooth.DeviceCharacteristic{}) {
-			n.err = n.rx.EnableNotifications(nil)
+			n.err = nativeError("unsubscribe", n.rx.EnableNotifications(nil))
 		}
 		n.err = errors.Join(n.err, n.device.Disconnect())
 	})

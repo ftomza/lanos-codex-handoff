@@ -68,15 +68,13 @@ func Serve(ctx context.Context, name string, input io.Reader, output io.Writer, 
 			if writeErr == nil && n != len(m.Data) {
 				writeErr = io.ErrShortWrite
 			}
-			ack := blewire.Message{Type: "ack", ID: m.ID}
 			if writeErr != nil {
-				ack.Error = writeErr.Error()
-			}
-			if err := pump.send(runCtx, ack); err != nil {
-				return err
-			}
-			if writeErr != nil {
+				// The final event includes cleanup and its retry classification.
+				// An early failed ack could make the parent stop before that event.
 				return writeErr
+			}
+			if err := pump.send(runCtx, blewire.Message{Type: "ack", ID: m.ID}); err != nil {
+				return err
 			}
 		}
 	}

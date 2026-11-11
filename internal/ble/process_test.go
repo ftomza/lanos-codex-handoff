@@ -75,6 +75,16 @@ func TestBLEChild(t *testing.T) {
 			fmt.Println(`{"type":"error","code":"disconnected","error":"ble device disconnected"}`)
 			os.Exit(0)
 		}
+		if scenario == "native-timeout" || scenario == "native-timeout-exit-failure" || scenario == "native-timeout-late" {
+			if scenario == "native-timeout-late" {
+				time.Sleep(100 * time.Millisecond)
+			}
+			fmt.Println(`{"type":"error","code":"timeout","error":"timeout on Write(); timeout on EnableNotifications"}`)
+			if scenario == "native-timeout-exit-failure" {
+				os.Exit(7)
+			}
+			os.Exit(0)
+		}
 		if scenario == "no-ack" {
 			continue
 		}
@@ -356,5 +366,46 @@ func TestReportedUnavailableCanRetryButMissingHelperCannot(t *testing.T) {
 	_, err = Open(t.Context(), Config{Name: "IOS-Vlink", Helper: "/nonexistent/obdprobe-ble"})
 	if errors.Is(err, blewire.ErrUnavailable) || !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("missing helper classified as unavailable adapter: %v", err)
+	}
+}
+
+func TestNativeTimeoutRequiresReapedSuccessfulHelper(t *testing.T) {
+	t.Parallel()
+	for _, scenario := range []string{"native-timeout", "native-timeout-exit-failure"} {
+		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+			d := testDevice(t, scenario)
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			defer cancel()
+			_, err := d.Write(ctx, []byte("ATI\r"))
+			if !errors.Is(err, blewire.ErrTimeout) || !strings.Contains(err.Error(), "timeout on EnableNotifications") {
+				t.Fatalf("timeout classification/evidence lost: %v", err)
+			}
+			closeErr := d.Close()
+			if (closeErr == nil) != (scenario == "native-timeout") || d.cmd.ProcessState == nil {
+				t.Fatalf("invalid child completion: %v state=%v", closeErr, d.cmd.ProcessState)
+			}
+			if closeErr != nil && !strings.Contains(closeErr.Error(), "exit status 7") {
+				t.Fatalf("exit failure hidden: %v", closeErr)
+			}
+		})
+	}
+}
+
+func TestNativeTimeoutAfterCommandDeadlineKeepsFinalCause(t *testing.T) {
+	t.Parallel()
+	d := testDevice(t, "native-timeout-late")
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancel()
+	if _, err := d.Write(ctx, []byte("ATI\r")); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("missing initial command deadline: %v", err)
+	}
+	recovery, stop := context.WithTimeout(t.Context(), time.Second)
+	defer stop()
+	if _, err := d.Read(recovery, make([]byte, 16)); !errors.Is(err, blewire.ErrTimeout) || !strings.Contains(err.Error(), "timeout on EnableNotifications") {
+		t.Fatalf("late native completion lost its type/evidence: %v", err)
+	}
+	if err := d.Close(); err != nil || d.cmd.ProcessState == nil || !d.cmd.ProcessState.Success() {
+		t.Fatalf("late timeout helper was not reaped cleanly: %v", err)
 	}
 }

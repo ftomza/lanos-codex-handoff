@@ -126,6 +126,8 @@ func (d *Device) accept(m blewire.Message) error {
 			return fmt.Errorf("native BLE: %w: %s", blewire.ErrDisconnected, m.Error)
 		case "unavailable":
 			return fmt.Errorf("native BLE: %w: %s", blewire.ErrUnavailable, m.Error)
+		case "timeout":
+			return fmt.Errorf("native BLE: %w: %s", blewire.ErrTimeout, m.Error)
 		}
 		return fmt.Errorf("native BLE: %s", m.Error)
 	default:

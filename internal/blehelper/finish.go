@@ -24,8 +24,8 @@ func finishConnection(pump *outputPump, connection Connection, err error) error 
 		closeErr = connection.Close()
 	}
 	code := ""
-	if closeErr == nil {
-		code = transientCode(err)
+	if transientCode(err) != "" && (closeErr == nil || timeoutCleanup(closeErr)) {
+		code = transientCode(errors.Join(err, closeErr))
 	}
 	err = errors.Join(err, closeErr)
 	if err != nil {
@@ -33,22 +33,41 @@ func finishConnection(pump *outputPump, connection Connection, err error) error 
 	}
 	pumpErr := pump.finish()
 	if code != "" && pumpErr == nil {
-		// The event carries the expected outcome; successful exit certifies
-		// cleanup. Actual process/cleanup failures remain fatal in the parent.
+		// The event retains transient operation/notification timeout evidence.
+		// The parent must reap this process before retrying; unknown cleanup
+		// errors and actual process/output failures remain fatal.
 		return nil
 	}
 	return errors.Join(err, pumpErr)
 }
 
+func timeoutCleanup(err error) bool {
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		causes := joined.Unwrap()
+		for _, cause := range causes {
+			if !timeoutCleanup(cause) {
+				return false
+			}
+		}
+		return len(causes) > 0
+	}
+	if wrapped, ok := err.(interface{ Unwrap() error }); ok {
+		return timeoutCleanup(wrapped.Unwrap())
+	}
+	return errors.Is(err, blewire.ErrTimeout)
+}
+
 func transientCode(err error) string {
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
 		code := ""
-		for i, cause := range joined.Unwrap() {
+		for _, cause := range joined.Unwrap() {
 			next := transientCode(cause)
-			if next == "" || i > 0 && next != code {
+			if next == "" {
 				return ""
 			}
-			code = next
+			if code == "" || next == "timeout" {
+				code = next
+			}
 		}
 		return code
 	}
@@ -60,6 +79,9 @@ func transientCode(err error) string {
 	}
 	if errors.Is(err, blewire.ErrUnavailable) {
 		return "unavailable"
+	}
+	if errors.Is(err, blewire.ErrTimeout) {
+		return "timeout"
 	}
 	return ""
 }

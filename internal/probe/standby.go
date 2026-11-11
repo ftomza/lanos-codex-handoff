@@ -191,6 +191,7 @@ func transientTransport(err error, missingSerial bool) bool {
 	return missingSerial && errors.Is(err, os.ErrNotExist) ||
 		errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.EOF) ||
 		errors.Is(err, blewire.ErrDisconnected) || errors.Is(err, blewire.ErrUnavailable) ||
+		errors.Is(err, blewire.ErrTimeout) ||
 		errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.ErrClosedPipe) ||
 		errors.Is(err, os.ErrClosed) || errors.Is(err, syscall.EIO) ||
 		errors.Is(err, syscall.ENXIO) || errors.Is(err, syscall.ENODEV) ||
