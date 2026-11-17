@@ -40,27 +40,24 @@ func (r *Runner) scanReadings(ctx context.Context, s *elm327.Session, report *Re
 			return err
 		}
 	}
-	response, err = r.command(ctx, s, report, "03")
-	if err != nil {
+	if err := r.readDTC(ctx, s, report, "03", &report.StoredDTCs, elm327.DecodeDTC); err != nil {
 		return err
 	}
-	report.StoredDTCs.CapturedAt = r.now().UTC()
-	report.StoredDTCs.RawResponse = response.Raw
-	codes, err := elm327.DecodeDTC(response)
-	if err != nil {
-		report.StoredDTCs.Status = "temporarily_unavailable"
-		report.unavailable("stored DTC read unavailable: " + err.Error())
-		return nil
+	if r.config.ReadPending {
+		if err := r.readDTC(ctx, s, report, "07", report.PendingDTCs, elm327.DecodePendingDTC); err != nil {
+			return err
+		}
 	}
-	report.StoredDTCs.Status = "available"
-	report.StoredDTCs.Codes = codes
-	return nil
+	return r.readExtended(ctx, s, report)
 }
 
 func (r *Runner) initialize(ctx context.Context, s *elm327.Session, report *Report) error {
 	commands := []string{"ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATI", "ATSP0"}
 	if r.config.Transport == "ble" {
 		commands = []string{"ATE0", "ATL0", "ATI", "ATSP0"}
+	}
+	if r.config.Headers {
+		commands = append(commands, "ATH1")
 	}
 	for _, command := range commands {
 		response, err := r.command(ctx, s, report, command)
@@ -161,7 +158,7 @@ func (r *Runner) readPID(ctx context.Context, s *elm327.Session, report *Report,
 	c.RawResponse = response.Raw
 	c.CapturedAt = r.now().UTC()
 	if response.Status != elm327.OK {
-		c.Status = "temporarily_unavailable"
+		c.Status = diagnosticResultStatus(response, 1, nil)
 		report.unavailable("PID " + c.PID + ": " + string(response.Status))
 		return nil
 	}

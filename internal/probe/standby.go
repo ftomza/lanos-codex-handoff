@@ -110,7 +110,7 @@ func (s *recording) waitECU(ctx context.Context) error {
 	if err := s.emit("standby", Standby{Reason: "ecu"}); err != nil {
 		return err
 	}
-	for {
+	for checks := 0; ; checks++ {
 		if err := s.r.wait(ctx, standbyInterval); err != nil {
 			return err
 		}
@@ -126,6 +126,12 @@ func (s *recording) waitECU(ctx context.Context) error {
 		if err != nil || ready {
 			return err
 		}
+		if checks == 2 {
+			// A responsive adapter can retain an unusable ECU protocol session
+			// across ignition changes. Reinitialize only after sparse checks,
+			// while the completed responses still establish synchronization.
+			return s.emit("recovery", map[string]string{"phase": "ecu_reinitialize"})
+		}
 	}
 }
 
@@ -139,22 +145,27 @@ func (s *recording) ecuReady(ctx context.Context) (bool, error) {
 }
 
 func (s *recording) pollWithoutCore(ctx context.Context, schedule *pollSchedule) error {
+	nextCheck := s.r.now().Add(standbyInterval)
+	interval := standbyInterval
+	if schedule.mil != nil {
+		interval = time.Second
+	}
 	for {
-		if err := s.r.wait(ctx, standbyInterval); err != nil {
+		if err := s.r.wait(ctx, interval); err != nil {
 			return err
 		}
-		ready, err := s.ecuReady(ctx)
-		if err != nil {
-			return err
-		}
-		if !ready {
-			return errECUWaiting
-		}
-		if command := schedule.support(s.r.now()); command != "" {
-			if err := s.readScheduled(ctx, command); err != nil {
+		if !s.r.now().Before(nextCheck) {
+			ready, err := s.ecuReady(ctx)
+			if err != nil {
 				return err
 			}
-			schedule.complete(command, s.r.now())
+			if !ready {
+				return errECUWaiting
+			}
+			nextCheck = s.r.now().Add(standbyInterval)
+		}
+		if err := s.pollSupport(ctx, schedule); err != nil {
+			return err
 		}
 	}
 }
@@ -180,6 +191,7 @@ func transientTransport(err error, missingSerial bool) bool {
 	return missingSerial && errors.Is(err, os.ErrNotExist) ||
 		errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.EOF) ||
 		errors.Is(err, blewire.ErrDisconnected) || errors.Is(err, blewire.ErrUnavailable) ||
+		errors.Is(err, blewire.ErrTimeout) ||
 		errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.ErrClosedPipe) ||
 		errors.Is(err, os.ErrClosed) || errors.Is(err, syscall.EIO) ||
 		errors.Is(err, syscall.ENXIO) || errors.Is(err, syscall.ENODEV) ||

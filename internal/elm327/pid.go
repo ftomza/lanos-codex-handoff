@@ -3,11 +3,12 @@ package elm327
 import "fmt"
 
 type Measurement struct {
-	Value    *float64           `json:"value"`
-	Unit     string             `json:"unit"`
-	MIL      *bool              `json:"mil_on,omitzero"`
-	DTCCount *int               `json:"stored_dtc_count,omitzero"`
-	Extra    map[string]float64 `json:"extra,omitzero"`
+	Readiness *Readiness         `json:"readiness,omitempty"`
+	Value     *float64           `json:"value"`
+	Unit      string             `json:"unit"`
+	MIL       *bool              `json:"mil_on,omitzero"`
+	DTCCount  *int               `json:"stored_dtc_count,omitzero"`
+	Extra     map[string]float64 `json:"extra,omitzero"`
 }
 
 type pidInfo struct {
@@ -88,6 +89,7 @@ func DecodePID(pid byte, r Response) (Measurement, error) {
 		count := int(data[0] & 0x7F)
 		m.MIL = &mil
 		m.DTCCount = &count
+		m.Readiness = decodeReadiness(data)
 	}
 	if pid >= 0x14 && pid <= 0x1B && data[1] != 0xFF {
 		m.Extra = map[string]float64{"short_fuel_trim_percent": trim(data[1:])}

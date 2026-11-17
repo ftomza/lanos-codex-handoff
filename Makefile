@@ -4,7 +4,7 @@ test:
 	go test ./...
 
 test-web:
-	node --test web/model.test.mjs web/feed.test.mjs web/fuel.test.mjs
+	node --test web/model.test.mjs web/feed.test.mjs web/fuel.test.mjs web/analytics.test.mjs web/diagnostics.test.mjs
 
 vet:
 	go vet ./...
@@ -25,3 +25,11 @@ build-dashboard:
 
 fmt:
 	gofmt -w cmd internal web
+
+.PHONY: build-fuelanalyze
+build-fuelanalyze:
+	go build -o bin/fuelanalyze ./cmd/fuelanalyze
+
+.PHONY: build-milanalyze
+build-milanalyze:
+	go build -o bin/milanalyze ./cmd/milanalyze

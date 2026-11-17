@@ -66,6 +66,17 @@ standby hides instantaneous values and preserves fuel totals with generation
 gaps. The approved standby spec supersedes M4's old terminal total retry budget.
 Physical ignition-cycle/sleep/reconnect acceptance remains separate and pending.
 
+M4 recovery repair2026-11-11 in fix/ignition-sleep-recovery: after3 sparse
+negative standby checks, repeat synchronized initialization/discovery. Recognized
+native Write/notification timeouts retain typed IPC/cleanup evidence and can
+retry after the old helper exits successfully and is reaped. Unknown cleanup,
+permission/protocol failures and abnormal child exits remain terminal. No change
+to ECU command allowlist, finite retry bounds, fuel totals or prompt recovery.
+Go/race/lint, web50/50 and native builds pass offline. The owner-recorded failures
+and next separate awake-ignition/sleep-wake acceptance are documented in
+diagnostics/2026-11-11-reconnect-review.md and NEXT_CONNECTION.md; no new physical
+recovery acceptance is claimed.
+
 ## M5 — Android path
 - First validate browser-based UI on Teclast P85 over LAN; assess fullscreen/kiosk, sleep/wake, brightness, thermal/power behavior.
 - Choose WebView wrapper or Kotlin native app based on measured performance and Bluetooth support. For direct SPP on Android, native BluetoothSocket and BLUETOOTH_CONNECT permission are needed; web browser cannot directly use Classic SPP.
@@ -230,6 +241,237 @@ Android remain pending. See FUEL_COMPUTER.md and NEXT_CONNECTION.md.
 7. Обновлены `docs/STATUS.md` и документация Fuel Computer.
 
 Не изменяй диагностические команды ЭБУ и не добавляй операции записи. Все новые функции реализуй поверх уже доступной телеметрии.
+
+
+M6.1 implementation completed offline on 2026-10-28 in feat/fuel-analytics:
+coherent diagnostics/intermediates/quality and IAT checks, opt-in bounded JSONL
+recording, streaming CLI/HTTP analysis and separate saved-history dashboard.
+Existing state v1, M6 formulas and ECU polling/commands are preserved. Full Go,
+race, lint, web and native build checks passed. Simulator record/restart/replay
+acceptance and exact commands are in STATUS.md; the next actual parked recording
+is documented in NEXT_CONNECTION.md. Physical M6.1/Android and fuel accuracy
+remain pending; prior owner totals are not a recoverable historical time series.
+
+# M3.3 — MIL Diagnostics &amp; Root Cause Investigation
+
+## Цель
+
+Расширить Lanos Dashboard механизмом диагностики Check Engine, автоматического обнаружения изменений MIL, записи диагностических событий и анализа состояния двигателя.
+
+**Основной сценарий:** на Chevrolet Lanos 1.5 во время поездки загорелся Check Engine. ЭБУ подтверждает MIL ON, но стандартные Mode 03 и Mode 07 не возвращают коды неисправностей.
+
+Необходимо исследовать причину, не изменяя состояние ЭБУ.
+
+## 1. Подготовка
+
+Прочитай:
+
+- [`AGENTS.md`](http://AGENTS.md)
+- `docs/[PROJECT.md](http://PROJECT.md)`
+- `docs/[PLAN.md](http://PLAN.md)`
+- `docs/[STATUS.md](http://STATUS.md)`
+- `docs/[capabilities.md](http://capabilities.md)`
+- `docs/FUEL_[COMPUTER.md](http://COMPUTER.md)`
+
+Изучи существующие пакеты `internal/elm327`, `internal/probe`, `internal/live`, `internal/telemetry`, реализацию Fuel Computer и JSONL-рекордер.
+
+Работай в отдельной ветке `feat/mil-diagnostics`, созданной от актуальной ветки с M4/M6. Не перезаписывай существующие изменения.
+
+## 2. Анализ исторической поездки
+
+Исследуй запись `part-0000000000000001.jsonl`.
+
+Проверь:
+
+- Временную шкалу подключения и переподключений.
+- RPM, MAP, IAT, ECT, STFT, LTFT и напряжение.
+- Резкие изменения и аномальные значения.
+- Состояние топливной системы, если оно записано.
+- Переходы между холостым ходом, разгоном и торможением двигателем.
+- Наличие MIL и диагностических событий в исходной схеме.
+
+Не придумывай момент возникновения неисправности, если соответствующего события нет в записи.
+
+Результат: `docs/diagnostics/FIRST_TRIP_[ANALYSIS.md](http://ANALYSIS.md)` с наблюдениями, гипотезами и ограничениями доказательств.
+
+## 3. Расширение диагностики DTC
+
+Добавь безопасные операции чтения:
+
+
+| Команда | Назначение                                        |
+| ------- | ------------------------------------------------- |
+| `0101`  | MIL, число DTC, readiness                         |
+| `03`    | Stored DTC                                        |
+| `07`    | Pending DTC                                       |
+| `0A`    | Permanent DTC, если режим поддерживается          |
+| `02`    | Freeze Frame, если поддерживается                 |
+| `ATH1`  | Диагностические заголовки для исследования кадров |
+
+
+Реализуй поддержку Mode 0A и Mode 02 с проверкой формата ответов, корректной обработкой отрицательных ответов и неподдерживаемых режимов.
+
+Не предполагай, что отсутствие кодов в Mode 03/07 означает отсутствие неисправности.
+
+Если Mode 0A не поддерживается конкретным ЭБУ, явно указывай `UNSUPPORTED` или `UNAVAILABLE` в зависимости от полученного ответа.
+
+## 4. MIL Event Recorder
+
+Добавь компонент `MILMonitor`, использующий существующий BLE/ELM-сеанс.
+
+Требования:
+
+- Опрос `0101` с настраиваемым интервалом, первоначально 5 секунд.
+- Отслеживание переходов `OFF → ON` и `ON → OFF`.
+- Разделение реального изменения состояния и потери связи.
+- Сохранение состояния MIL, числа DTC и исходного ответа.
+- Временные метки получения и возраст данных.
+- Дедупликация событий.
+- Никаких дополнительных параллельных соединений с Vgate.
+
+При обнаружении `OFF → ON` автоматически формируй диагностическое событие.
+
+## 5. Диагностический снимок
+
+Храни ограниченный кольцевой буфер телеметрии за последние 60 секунд.
+
+При переходе MIL в ON сохраняй:
+
+- 60 секунд до события.
+- 30 секунд после события.
+- RPM, скорость, MAP, IAT, ECT.
+- Дроссель, нагрузку, STFT/LTFT.
+- Доступные показатели O2.
+- Напряжение адаптера.
+- Состояние Fuel Computer.
+- Состояние BLE, задержки и ошибки опроса.
+- Результаты доступных read-only DTC-запросов.
+
+Не блокируй основной цикл телеметрии длительными диагностическими запросами. Используй приоритеты и последовательную очередь команд.
+
+Если MIL уже включён при запуске приложения, формируй событие `MIL_ALREADY_ON` без выдуманного времени первоначального включения.
+
+## 6. Корреляционный анализ
+
+Создай offline-анализатор диагностических событий.
+
+Он должен выявлять:
+
+- Необычные значения MAP относительно RPM и нагрузки.
+- Длительно постоянный или недостоверный IAT.
+- Экстремальные топливные коррекции.
+- Возможные аномалии O2.
+- Перегрев и изменения ECT.
+- Просадки напряжения.
+- Пропуски телеметрии и ошибки протокола.
+
+Не ставь диагноз автоматически на основании одного параметра.
+
+Для каждой гипотезы сохраняй:
+
+- Наблюдаемый симптом.
+- Подтверждающие измерения.
+- Противоречащие измерения.
+- Недостающие данные.
+- Рекомендуемую следующую диагностическую проверку.
+
+Отдельно исследуй уже наблюдавшееся поведение IAT `−40°C → 20°C`, не считая его доказанной причиной MIL.
+
+## 7. Расширенная диагностика MR-140
+
+Точная модель ЭБУ пока не подтверждена.
+
+Изучи документированные диагностические возможности Delphi MR-140 и совместимых блоков GM/Daewoo.
+
+Если стандартные режимы не позволяют установить причину MIL:
+
+1. Найди техническую документацию диагностического протокола.
+2. Проверь применимость к конкретному ЭБУ.
+3. Опиши безопасные read-only запросы.
+4. Подготовь отдельный проект расширения.
+5. Не выполняй недокументированные команды автоматически.
+
+Запрещены команды очистки DTC, программирования, изменения конфигурации и управления исполнительными механизмами.
+
+## 8. Интерфейс Dashboard
+
+Добавь отдельный экран «Диагностика».
+
+Он должен показывать:
+
+- Состояние Check Engine: ON / OFF / UNKNOWN.
+- Число DTC, сообщённое ЭБУ.
+- Stored / Pending / Permanent DTC.
+- Время последнего успешного опроса.
+- Историю изменений MIL.
+- Диагностические события.
+- Аномалии датчиков и степень уверенности в наблюдениях.
+- Ссылку на сохранённый диагностический снимок.
+
+Если MIL включён, но списки кодов пусты, показывай:
+
+**«Check Engine включён. Причина не определена стандартными диагностическими режимами».**
+
+Не показывай «Ошибок нет» в такой ситуации.
+
+## 9. Тестирование
+
+Добавь unit и integration tests:
+
+- MIL OFF → ON.
+- MIL ON → OFF.
+- MIL уже включён при запуске.
+- MIL ON при пустых Mode 03/07.
+- Mode 0A unsupported.
+- Отрицательные ответы KWP2000.
+- Разрыв BLE во время диагностики.
+- Потеря данных до события.
+- Дедупликация событий.
+- Корректное сохранение JSONL.
+- Отсутствие влияния на Fuel Computer.
+- Невозможность выполнения ECU write/clear.
+
+Используй реальные ранее сохранённые ответы только как подтверждённые fixtures. Синтетические сценарии маркируй отдельно.
+
+## 10. Критерии готовности
+
+- MIL отслеживается в Live Dashboard.
+- При переходе MIL сохраняется диагностический снимок.
+- Пустые DTC не интерпретируются как отсутствие неисправности.
+- Mode 02/0A обрабатываются безопасно.
+- События можно анализировать offline.
+- Основной BLE-поток не деградирует из-за диагностики.
+- Нет команд записи в ЭБУ.
+- Проходят `go test ./...`, `go test -race ./...`, `go vet ./...` и веб-тесты.
+- Обновлены `docs/[STATUS.md](http://STATUS.md)`, `docs/[PLAN.md](http://PLAN.md)` и диагностическая документация.
+
+## Порядок выполнения
+
+**M3.3.1** — исследование исторических логов и существующей реализации. Завершено 2026-11-03: `docs/diagnostics/FIRST_TRIP_ANALYSIS.md`.
+
+**M3.3.2** — расширение read-only DTC и readiness. Реализовано и проверено offline 2026-11-03; Mode02/0A/ATH1 физически не проверены.
+
+**M3.3.3** — MILMonitor и кольцевой буфер. Реализовано и проверено offline 2026-11-03, один общий сериализованный сеанс.
+
+**M3.3.4** — диагностические снимки и JSONL. Реализовано и проверено offline 2026-11-03, opt-in `--mil-record-dir`; инструкции в `docs/MIL_DIAGNOSTICS.md` и `docs/NEXT_CONNECTION.md`.
+
+**M3.3.5** — реализован и проверен offline 2026-11-07 в `feat/mil-analysis`:
+read-only MIL reader, библиотека `milanalysis`, CLI `milanalyze` (текст/JSON),
+события/DTC/freeze frame, качество записи и эвристики с доказательствами и
+`insufficient_data`. Проверен на сохранённом событии P0420; аппаратного
+подключения не было. Инструкции и ограничения — `docs/MIL_DIAGNOSTICS.md`.
+
+**M3.3.6** — реализован и проверен offline 2026-11-07 в `feat/mil-dashboard`:
+отдельный `/diagnostics.html`, свежий MIL ON/OFF/UNKNOWN, последние ответы DTC,
+история событий, находки с доказательствами и экспорт JSON. Read-only
+`--mil-history-dir` позволяет открыть LIVE-архив с текущим SIM без подключения
+адаптера. Go/race/lint, 50 веб-тестов, сборки и desktop Chrome-проверки
+1280×800/390×844 прошли; Android и физическая M3.3.7 остаются непроверенными.
+Команды и ограничения — `docs/MIL_DIAGNOSTICS.md`.
+
+**M3.3.7** — отдельная физическая проверка на стоящем автомобиле после согласования. Не выполнялась в этой работе.
+
+После каждого этапа обновляй `docs/[STATUS.md](http://STATUS.md)`, фиксируй результаты тестов, ограничения и следующий шаг. Не переходи к физическим экспериментам без отдельного подтверждения.
 
 
 ## M5 Android implementation handoff (2026-11-17)

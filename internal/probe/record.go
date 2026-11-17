@@ -48,6 +48,9 @@ func (r *Runner) Stream(ctx context.Context, sink func(record.Event) error) (Rec
 }
 
 func (r *Runner) runStream(ctx, parent context.Context, duration time.Duration, sink func(record.Event) error) (RecordingSummary, error) {
+	if r.config.finiteDiagnostics() {
+		return RecordingSummary{}, fmt.Errorf("extended diagnostic flags require a finite diagnostic probe")
+	}
 	runner := *r
 	runner.config.ScanSupported = true
 	runner.origin = runner.now()
@@ -174,6 +177,9 @@ func (s *recording) attempt(ctx context.Context) error {
 
 func (s *recording) poll(ctx context.Context) error {
 	schedule := newPollSchedule(s.report, s.r.now(), s.duration == 0)
+	if s.duration == 0 {
+		schedule.enableMIL(s.report, s.r.now(), s.r.config.MILInterval)
+	}
 	if s.duration == 0 && len(schedule.core) == 0 {
 		return s.pollWithoutCore(ctx, schedule)
 	}
@@ -202,16 +208,10 @@ func (s *recording) poll(ctx context.Context) error {
 				return errECUWaiting
 			}
 		}
-		if command := schedule.support(s.r.now()); command != "" {
-			if err := s.check(ctx); err != nil {
-				return err
-			}
-			err := s.readScheduled(ctx, command)
-			if err != nil {
-				return err
-			}
-			schedule.complete(command, s.r.now())
+		if err := s.pollSupport(ctx, schedule); err != nil {
+			return err
 		}
+
 		delay := max(0, roundStart.Add(time.Second).Sub(s.r.now()))
 		if s.duration > 0 {
 			delay = min(delay, max(0, s.duration-s.r.now().Sub(s.started)))

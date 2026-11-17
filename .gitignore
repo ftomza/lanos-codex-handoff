@@ -8,3 +8,7 @@
 .env.*
 
 /data/fuel/
+
+# Optional bounded diagnostic history (private vehicle data)
+data/fuel-history/
+data/mil-events/

@@ -1,6 +1,27 @@
 # Session handoff / status
 
 ## Current state
+M3.3.5 is implemented and offline-verified on `feat/mil-analysis`: bounded
+read-only MIL archive reader, reusable evidence/heuristic analysis, and
+`milanalyze` Russian text/versioned JSON reports. Current saved P0420 replay
+preserves partial context, final UNKNOWN and independent late freeze replies.
+No transport/polling/fuel changes or new vehicle connection. M3.3.6 remains next.
+
+2026-11-07 owner-recorded sessions: confirmed MIL OFF -> ON at 16:54:18 Moscow,
+stored and pending P0420, freeze-frame cause P0420. Mode0A returns unsupported
+7F0A11. Today's physical lamp state is not owner-confirmed; no subsequent OFF
+is recorded. Context is retained with gaps, not a complete continuous window.
+See diagnostics/2026-11-07-trip-review.md for evidence and fuel analysis.
+
+2026-10-29 Check Engine follow-up: owner reports steady light and smooth idle;
+physical Go BLE confirms MIL on but empty stored Mode 03 and pending Mode 07
+lists. Cause is unresolved. Finite --read-pending support is implemented on
+feat/pending-dtc (based on feat/fuel-analytics); no clearing occurred.
+M6.1 is implemented and offline-verified on `feat/fuel-analytics` in this same
+checkout: coherent fuel diagnostics/quality and IAT heuristics, bounded opt-in
+JSONL history, shared streaming analysis/CLI and a saved-history dashboard page.
+State v1, dependencies/Go version, ECU command set/schedule and standby behavior
+are preserved. No physical M6.1/Android/consumption-accuracy claim is made.
 M0–M3 complete. M4 live dashboard and M6 fuel computer are implemented,
 offline-verified and merged into main via PR #3 (87f324e). The owner reports
 a successful first combined LIVE run; no duration, readings or logs supplied.
@@ -41,11 +62,21 @@ This verifies that diagnostic Python path, not the Go implementation or long-run
 stability.
 
 ## Next action
+Next MIL milestone is M3.3.6: use the offline report on a diagnostics screen.
+M3.3.5 commands/limits are in MIL_DIAGNOSTICS.md; no more recording is required
+to use it. Separate physical IAT/P0420 investigation and full M3.3.7 acceptance
+remain independently authorized work. Historical next-action entries follow.
+
 Owner approved merging fix/ecu-standby into main. The merged tree passed fresh
 offline checks. Follow NEXT_CONNECTION.md for a separately agreed parked ignition
 cycle test; no physical vehicle was accessed for this fix.
-M6.1 requirements are committed in PLAN.md (1471a63). Continue design/work in
-feat/fuel-analytics in the current repository folder, based on the combined main.
+M6.1 requirements (1471a63) and ECU standby (7cc6aa8) remain in main.
+The owner approved the design and implementation on feat/fuel-analytics.
+Review that feature branch, then follow the new M6.1 section in
+NEXT_CONNECTION.md for a separately agreed parked test and unattended recording.
+Keep the existing live-experimental state path; add --fuel-record-dir to save
+history. Old state totals cannot reconstruct a historical time series.
+No vehicle connection is authorized or required for the offline implementation.
 
 Owner approved M6; it is now merged into main with the new fuel
 panel, persistent totals/coverage, local reset and reversible calibration.
@@ -99,6 +130,8 @@ terminals. Old recordings are not presented as measured fuel consumption.
 - M3 trip-recorder follow-up — offline-tested, then owner 60s/14m36s recordings analyzed; cleanup/IAT issues remain.
 - M4 — merged/offline checks complete; first LIVE run reported successful by owner; ignition-off fix integrated into main, physical acceptance pending.
 - M6 — merged/simulator acceptance complete; first combined LIVE run reported successful; live accuracy/IAT/calibration and visual/device acceptance pending.
+
+- M6.1 — diagnostic recording, quality, IAT checks, offline CLI/HTTP and history UI implemented on feat/fuel-analytics; physical recording/Android/accuracy pending.
 
 ## Decisions and risks
 - Local-first, read-only diagnostics.
@@ -900,3 +933,620 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   not independently measured liters or a validation of IAT/VE/consumption.
 - Next: advance feat/fuel-analytics to this main in the current folder;
   prepare the M6.1 recording/analysis/UI design before implementation.
+
+### 2026-10-28 — M6.1 design on combined main
+
+- Advanced feat/fuel-analytics to main 7cc6aa8 in the existing working folder;
+  no additional worktree. main now contains both M6.1 requirements and the
+  ECU standby fix, including fresh merged-tree verification above.
+- Read M6.1/PROJECT/STATUS/FUEL_COMPUTER and inspected Source, existing PID
+  decoders/schedule, estimator/accounting/API and UI. Existing Stream already
+  reads throttle/trims/O2; exposing those responses needs no new ECU commands.
+- Compared integrated coherent recording with an external SSE recorder;
+  proposed integrated opt-in JSONL, bounded rotation/queue, separate history
+  state/lock, shared CLI/HTTP analysis, additive input quality/intermediates,
+  IAT heuristics and a saved-history dashboard page. Existing fuel state v1,
+  formulas, opt-in behavior, dependency versions and ECU schedule remain intact.
+- Written spec: docs/superpowers/specs/2026-10-28-fuel-analytics-design.md.
+  Inline self-review checked retention/partial history, process time boundaries,
+  calibration/reset jumps, source separation, timestamps and cold-start evidence.
+  Limited recording intervals to <=2s to fit the existing 3s accounting bound.
+- Design-only changes: git diff --check. No new M6.1 tests or implementation;
+  the successful Go/race/lint/browser/build checks above apply to merged main.
+  No vehicle queries or access to owner scripts/private state/recordings.
+- Await owner approval of the concrete written design as required by
+  brainstorming; then write implementation plan and execute regressions/code
+  in this same feature branch and workspace.
+
+
+### 2026-10-28 — M6.1 implementation after owner approval
+
+- Owner approved the design and said «Да, погнали». Implemented inline in the
+  same checkout on feat/fuel-analytics, based on main 7cc6aa8 and design 22573b5.
+  No new worktree, no real adapter/ECU queries, no access to owner scripts or
+  private trip/state files. The old .codex/START_HERE.md is absent in this tree;
+  current AGENTS.md and PROJECT/PLAN/STATUS were consulted.
+- Added optional coherent immutable Computer diagnostics, actual speed-density
+  terms/units, nullable signal ages, input quality and bounded IAT heuristics.
+  Preserved -40°C evidence, model limits and explicit LIVE IAT opt-in. Startup
+  IAT can be investigated during connecting without enabling fuel calculation.
+  Cold comparison requires an owner annotation and does not reopen on reconnect.
+  Existing throttle/trims/O2 replies are exposed with independent TTLs; probe
+  scheduling/allowlist/commands and the fuel state v1/fingerprint are unchanged.
+- Added fuelhistory JSONL v1 with 256-row nonblocking queue, private 0600 parts,
+  new 0700 directories, exclusive sidecar lock, atomic fsynced bounded manifest,
+  64KiB rows and default eight 16MiB parts. Only owned retired parts are removed.
+  Recorder errors stop recording visibly while source/HTTP/M6 remain running.
+  Close returns failures; a still-writable footer preserves the failure cause.
+  Missing referenced parts/corrupt metadata never reset the catalog silently.
+- Shared cancellable streaming analysis serves fuelanalyze and configured-only
+  HTTP catalog/report endpoints. Counters are authoritative only across valid
+  comparable intervals; reset/factor/model/generation/sequence/time boundaries
+  and >3s intervals cannot create fuel/distance. Includes coverage/gaps, known-
+  speed weighted average, idle/moving/off/unknown, bins/mixed ranges, segments,
+  IAT flags, markers and sampled-flow comparison. Bounded issue/segment/chart
+  output; read-only analysis never advances fuel accounting or rewrites state.
+- Separate analytics.html uses saved session/range data and six Canvas series.
+  Gaps remain broken; quality, source, retention and downsampling are explicit.
+  Small-budget regression caught a potential reduction loop at 1–2 points:
+  one point now keeps newest, two keep extrema with conservative breaks.
+  Filtered ranges keep lifecycle without false sequence gaps. Empty saved
+  sessions do not appear as zero consumption. No JS/Go dependencies were added.
+- Regression coverage includes formulas/units, freshness/missing inputs, distinct
+  IAT timestamps, startup -40→20, constant/jump/cold checks, control boundaries,
+  immutable observations, old state/API, rotation/source/locks, runtime write
+  error/queue overflow, corrupt/partial history, cancellation and reset/factor/
+  generation boundaries. Actual child-process abrupt exit preserves its complete
+  prefix and leaves a lock; verified manual test cleanup permits a fresh session.
+  Startup history failure precedes Source.Start; real oversized-row writer
+  failure leaves source updates and HTTP alive and returns error on shutdown.
+- Final automated verification, all exit 0:
+  - go test ./... -count=1
+  - go test -race ./... -count=1
+  - make lint (go vet ./... and gofmt check)
+  - make test-web (26 tests)
+  - make build-dashboard build-obdprobe build-fuelanalyze build
+  - built dashboard/fuelanalyze/obdprobe --help; node --check of new modules
+  - Go AST function-length check: no function exceeds 100 lines; goimports is
+    unavailable, imports were grouped manually and formatted with gofmt.
+- Updated README, FUEL_COMPUTER, NEXT_CONNECTION and the approved spec/plan.
+  Hardware-only work remaining: short parked M6.1 recording, controlled ignition/
+  BLE recovery, IAT validation/cold-start evidence, endurance, Android and actual
+  full-to-full fuel calibration. No exact consumption/ECU-model claim is made.
+
+- Final built-binary smoke passed: 25s speed-density simulator capture at 250ms,
+  two SSE readers, clean SIGINT, private 0600 history, CLI JSON, restart preserving
+  reset_at/totals and two saved sessions, then history-only dashboard with fuel
+  off and no BLE. Isolated nonpersistent WebKit rendered all six charts at
+  1280x800 and 560 CSS pixels with no JS errors or horizontal overflow. The
+  longer moving session was explicitly selected. Artifacts (synthetic only):
+  /private/tmp/lanos-m6-1-review-2nl2_p06 (report.json and screenshots).
+  A temporary Swift smoke-harness compile error was fixed before this successful
+  final run; application code was not implicated. Android itself was not tested.
+- git diff --check passed; no changes to go.mod/go.sum, internal/probe,
+  internal/elm327 or fuel state schema. Owner test.py/test2.py remain untracked
+  and excluded. Delivery stays on feat/fuel-analytics; main is not modified.
+
+
+### 2026-10-29 — Parked running-engine Check Engine read, owner authorized
+
+- Owner reported a newly illuminated Check Engine, engine running and vehicle
+  stopped; clarified steady light and smooth engine operation. No other OBD
+  process/listener was found before opening the single BLE connection.
+- Ran existing built native Go probe, without changing application code:
+  ./bin/obdprobe --transport=ble --ble-name=IOS-Vlink --retries=0 --json
+  --output=diagnostics/check-engine-20261029-001.json
+- Completed at approximately 13:10 Europe/Moscow: status=complete, one attempt,
+  all 12 commands ok, no warnings, exit 0 and normal helper cleanup.
+  ELM327 v2.3, auto protocol A5; RPM 874.25, speed 0 km/h, coolant 94°C.
+  ATRV 13.1V is adapter supply, not a direct generator-terminal measurement.
+- MIL is ON: 0101 -> 41 01 80 07 E1 A1. Low seven bits of A report zero stored
+  DTCs. Mode 03 -> 43 00 00 00 00 00 00, decoded as an empty stored-code list.
+  The raw responses agree with the decoder; this is not evidence of a healthy
+  vehicle or an established fault cause. No specific component is diagnosed.
+- Preserved private report (0600) at the ignored path above. No clear/write,
+  ignition change, state reset, proprietary query or repeated polling occurred.
+  Existing allowlist supports Mode 01/03 only; pending Mode 07 and permanent
+  Mode 0A were NOT queried. Next diagnostic step is pending-code reading with
+  suitable read-only support and, if needed, ECU-specific diagnostic equipment.
+  No new M6.1/Android/fuel-accuracy acceptance is inferred from this probe.
+
+
+### 2026-10-29 — Explicit pending-code read implemented and physically executed
+
+- Owner said «читаем» after Mode 07 was identified as the next read-only step.
+  Worked in the same checkout on feat/pending-dtc, based on 27fcf58. The previous
+  hardware log in STATUS was retained. Owner test.py/test2.py were untouched.
+- Added finite-only --read-pending to obdprobe: literal 07 allowlisted, strict
+  response 47 decoding shares stored-code pair/padding validation, optional
+  pending_dtcs is separate from stored_dtcs with raw/time/source/status. Retry
+  reset/invalidation cannot expose prior codes as current. Default probes,
+  dashboard and recording schedules remain unchanged; Record/Stream and list
+  mode reject the option before opening hardware. Mode 04/08/0A/VIN/arbitrary
+  commands remain blocked; no Go/dependency/fuel-state change.
+- Tests first failed on the missing pending API, then passed: synthetic codes,
+  empty/malformed/wrong-mode/negative/NO DATA replies, opt-in/default audit,
+  restart/staleness, finite-only flags, and separate human/JSON output. Added
+  exact physical MIL/03/07 fixture; nonzero P0133 test codes are synthetic only.
+- Offline checks passed: go test ./... -count=1; go test -race ./internal/elm327
+  ./internal/probe ./cmd/obdprobe -count=1; make lint; go build -o bin/obdprobe
+  ./cmd/obdprobe. Focused tests were repeated after adding the physical fixture
+  and human/JSON output checks; no vehicle access is needed for these tests.
+- After confirming no concurrent OBD process, ran one native BLE probe:
+  ./bin/obdprobe --transport=ble --ble-name=IOS-Vlink --retries=0 --read-pending
+  --output=diagnostics/check-engine-pending-20261029-001.json
+  Completed at 13:16:15 Europe/Moscow, status=complete, one attempt, all 13
+  commands ok, no warnings, exit 0 and normal connection/helper close.
+- Actual replies: 0101 -> 41 01 80 07 E1 A1 (MIL on, stored count 0);
+  03 -> 43 00 00 00 00 00 00; 07 -> 47 00 00 00 00 00 00.
+  Both code lists available and empty. RPM=883, coolant=94°C, speed=0 km/h;
+  ATRV=13.2V is adapter supply. Report preserved privately in ignored diagnostics/.
+- No fault cause/component diagnosis follows from these empty generic lists.
+  Next useful step: suitable ECU-specific GM/Daewoo diagnostic equipment and
+  vehicle inspection; ECU model remains unconfirmed. Mode 0A/permanent codes,
+  freeze frames, proprietary reads and code clearing were not performed.
+  No change to ignition/engine state was requested or made by the agent.
+
+
+### 2026-11-03 — M3.3.1 completed offline
+
+- Owner saved M3.3 in docs/PLAN.md and requested M3.3.1–M3.3.4 only. Created
+  feat/mil-diagnostics from d95da3a (contains M4/M6/M6.1/Mode07). Preserved the
+  owner's PLAN addition and untracked scripts; no worktree or hardware access.
+- Read AGENTS, PROJECT, PLAN, STATUS, capabilities, FUEL_COMPUTER and existing
+  probe/live/fuel/history code. Analyzed the exact requested part under
+  data/fuel-history/live, read-only with Python standard-library JSON streaming.
+  1299 valid rows, no JSON errors, correct session_end, SHA-256 and Moscow times
+  recorded in docs/diagnostics/FIRST_TRIP_ANALYSIS.md.
+- The file is 2026-10-29 11:44–12:06, 22m7s, with one failed startup generation
+  and a later successful generation; 4989 commands/17 errors/two gap counters.
+  Constant IAT=20 across 149 distinct capture timestamps, ECT 6..89, RPM 0..3248.5,
+  speed 0..78, MAP 25..102, trims/O2 and adapter supply ranges are documented.
+- No MIL/DTC/readiness/fuel-system status or load existed in the saved snapshot;
+  original MIL onset and its cause cannot be reconstructed. This record does
+  not contain the old -40→20 transition. Kept hypotheses separate from evidence.
+- Verification: Python streaming analysis + integrity/unique-timestamp/TTL checks
+  passed; git diff --check. No application changes or hardware tests in this step.
+  Next: M3.3.2 read-only readiness/permanent/freeze-frame/headers with fixtures.
+
+### 2026-11-03 — M3.3.2 read-only diagnostic extension, offline
+
+- Added 0101 spark/compression readiness and finite-only obdprobe options
+  --read-permanent, --read-freeze-frame and --headers. Mode0A lists, frame00
+  context and stored/pending lists have independent status/raw/time fields.
+  Mode02 reads its bitmap before advertised first-block context PIDs only.
+- Negative replies distinguish explicit NRC11/12 unsupported, unavailable and
+  malformed responses. Strict service/frame/length checks include raw-only
+  freeze PID03. MIL ON with empty standard lists explicitly remains unresolved.
+- ATH1 accepts only validated physical three-byte inline-length KWP frames;
+  responder metadata and optional validated checksum are retained. Unknown
+  layouts fail explicitly. Completed finite scans restore ATH0; cancellation or
+  an unsynchronized timeout sends no cleanup. See MIL_DIAGNOSTICS.md.
+- Existing default command order and stream options remain unchanged. ECU
+  write/clear, arbitrary requests, VIN and proprietary commands stay blocked.
+  No dependencies, Go version, fuel formulas/state or hardware access changed.
+- Verification: go test ./... -count=1; focused tests and race tests for
+  internal/elm327, internal/probe, cmd/obdprobe; make lint; go build -o
+  bin/obdprobe ./cmd/obdprobe; git diff --check. All passed. Independent spec
+  review found a PID03 length gap; regression failed first, fix and re-review
+  passed. No physical Mode02/0A/ATH1 compatibility is claimed.
+- Next: M3.3.3 shared-session MIL monitoring, freshness/loss events and 60s ring.
+
+### 2026-11-03 — M3.3.3 MIL monitor and shared-session scheduling, offline
+
+- Added MILMonitor: initial MIL_ALREADY_ON, confirmed MIL_ON/MIL_OFF, UNKNOWN
+  on expiry/loss, and separate observations after gaps. New response timestamps
+  establish continuity; duplicates or old MIL cannot become a new transition.
+  Events retain count/raw/readiness/host timestamps and transition bounds.
+- Source publishes every update to one observer registered before Start, so
+  coalesced Read and browser count cannot lose MIL transitions. Additive snapshot
+  fields retain independent MIL TTL, read-only diagnostic evidence and last poll
+  latency/errors; cloning owns all pointers/maps. Load is exposed from existing
+  0104 polling. Stored freeze-frame values never enter live/fuel signals.
+- Config.MILInterval=0 preserves defaults; enabled Stream accepts 1s..60s. Core
+  reads precede a due-MIL slot and at most one ordinary/diagnostic slot. Separate
+  slots prevent starvation at 1s; diagnostics alternate with due ordinary work.
+  Queue: 03/07/0A/020000 then advertised frame00 context. Unsupported requests
+  latch per generation. No new connection, commands remain serialized/read-only.
+- 60s ring samples at most once per second plus forced boundaries, hard cap256.
+  One boundary predecessor handles fractional event timing; missing start or
+  capacity-evicted pre-context is explicit. Independent spec and quality review
+  passed after red-green fixes for the boundary and duplicate loss events.
+- Verification: go test ./... -count=1, focused monitor/source/telemetry tests,
+  focused race tests, make lint and git diff --check passed. Concurrent stress
+  reproduced old 1–5ms recovery-fixture flakes; three tests now inject one
+  synthetic timeout while healthy commands retain 1s deadlines. Recovery/prompt
+  assertions remain; probe race stress passed five runs at parallelism64 and
+  focused recovery tests passed 50 runs. Production timeouts are unchanged.
+- No hardware, fuel formulas/state, dependencies or Go version changes.
+  Next: M3.3.4 capture manager, private bounded JSONL and dashboard CLI wiring.
+
+### 2026-11-03 — M3.3.4 diagnostic snapshots and JSONL completed offline
+
+- Added opt-in dashboard --mil-record-dir and --mil-interval (default5s,
+  target1..60s). Early validation rejects incomplete/mixed configuration.
+  One capture observer attaches before Source.Start; no second transport or
+  browser-dependent accounting. API/SSE expose mil, ecu_readings, poll and
+  mil_recording; the dedicated diagnostic screen remains M3.3.6.
+- ON/MIL_ALREADY_ON/ON_AFTER_GAP preserve retained60s pre/30s post context.
+  Nearby triggers share an incident, deadline bounded at first+120s. Every
+  transition/loss is saved even outside an incident; late queued diagnostics
+  have independent rows without guessed association. Initial/missing pre,
+  capacity eviction, stale data, timer gaps and early shutdown stay explicit.
+- Frames retain raw telemetry, signal ages/effective health, load/trims/O2,
+  adapter supply, connectivity/generation/counters, last latency/error, read-only
+  diagnostic evidence and existing Fuel.Diagnostic with its own input times.
+  The getter never advances fuel accounting; a real Computer regression verifies
+  unchanged totals/state. Stored freeze readings never become live fuel inputs.
+- New milstore: bounded256 asynchronous queue,1MiB row cap, default8x16MiB managed
+  parts, strict source-bound manifest and retention flag. New directories0700,
+  files0600, exclusive lock, no overwrite or foreign-file removal, VIN redaction,
+  fsync5s/rotation/close. Symlink paths rejected; orphan/corrupt records preserved
+  with actionable failure. Missing footer/aborted parts remain incomplete.
+  Runtime failure appears in API/stderr/Close while telemetry/fuel continue.
+- Tests cover full synthetic60+30s through real JSONL, initialON/partial close,
+  overlaps/hard deadline, late replies, no fabricated past frames after delayed
+  ticks, read-only fuel context, queue/disk/lock/crash/retention/privacy, fast
+  OFF/ON/OFF before Read, and two SSE browsers sharing one source. MIL-specific
+  server failure test confirms visible API failure plus continuing fuel/telemetry
+  and returned shutdown error. Independent spec/quality reviews passed.
+- Final verification passed: go test ./... -count=1; go test -race ./... -count=1;
+  make lint (includes go vet ./...); make test-web (26 passed); make
+  build-dashboard build-obdprobe build-fuelanalyze build (including native BLE
+  helper); git diff --check. All changed Go functions are <=100 lines; goimports
+  unavailable, imports grouped manually and gofmt clean. No dependency/Go version
+  changes, ECU writes, fuel-state/formula changes or hardware access.
+- Built-binary synthetic smoke passed: two simulator launches, each with two
+  SSE clients, recording status, private permissions, clean SIGINT/exit0,
+  exclusive-lock removal, two distinct persisted sessions across restart and
+  invalid flags rejected before startup. Simulator intentionally has no MIL;
+  complete ON/OFF capture is covered by the synthetic Go integration tests.
+  Artifacts: /private/tmp/lanos-mil-smoke-2nno8s5m/report.json.
+- Updated README, PLAN, MIL_DIAGNOSTICS and NEXT_CONNECTION with exact next-run
+  command, interpretation/retention/lock guidance and unchanged fuel-state path.
+  Private data/mil-events is ignored; owner scripts remain excluded. Delivery on
+  feat/mil-diagnostics; no main merge. No new hardware/Android/fuel-accuracy claim.
+  Next: separately authorized M3.3.7 parked physical acceptance and/or M3.3.5
+  offline correlation, then M3.3.6 diagnostic screen; these remain unimplemented.
+
+### 2026-11-06 — Two owner-recorded trips: missing instantaneous fuel analyzed
+
+- Owner reported no fuel display during the first drive and a late appearance
+  during the second. Read fuel-history live parts4/5 and matching MIL parts1/2
+  offline, without opening hardware or changing application/fuel-state settings.
+- JSON/sequence/closed-footer/hash checks passed. Records cover 09:22:48–09:35:19
+  and 09:52:43–09:57:42 Europe/Moscow; about1.6704/1.6713 recorded km. Full evidence
+  and limitations: diagnostics/2026-11-06-fuel-availability.md.
+- All blocked moving snapshots have fresh available IAT<=-30 and the exact
+  reason iat_unavailable_or_out_of_range. First drive:175/175 moving snapshots
+  blocked at -40. A separate53s standstill interval at -6/-7 did produce L/h.
+  Second drive:101/169 moving snapshots blocked; IAT becomes+8 at09:55:51.449
+  and the fuel estimate appears at that exact timestamp, then follows+8..+10.
+- Confirmed experimental IAT opt-in was enabled after model selection. IAT TTL20s
+  and capture intervals~8.7s show the blocked moving samples were fresh. Existing
+  estimator/browser behavior explains the dash; no threshold/default-temperature
+  substitution, model/factor change or full-trip fuel reconstruction performed.
+- Existing offline fuelanalyze agrees: time coverage8.06%/35.10%, covered fuel
+  0.02306/0.08506L; these are partial records, not complete-trip consumption.
+  Both MIL histories start OFF with empty03; no ON/Mode02/0A physical acceptance.
+- Separate follow-up observed: MIL UNKNOWN/OFF_AFTER_GAP with small/negative ages
+  during otherwise live telemetry warrants timestamp-ordering regression work.
+  These events are not sufficient evidence of BLE loss or the cause of fuel gaps.
+- Verification: focused go test ./internal/fuel -count=1 and five web/fuel tests;
+  JSON/sequence/hash/all-blocked-input assertions and both offline CLI reports.
+  No application code changes; private parts and owner scripts remain untouched.
+  Next: raw010F evidence and independent IAT comparison under a separately
+  authorized connection; sensor/wiring/ECU cause remains unconfirmed. This
+  targeted investigation does not implement the deferred M3.3.5 analyzer.
+
+### 2026-11-06 — MIL false UNKNOWN timestamp ordering reproduced and fixed
+
+- Owner confirms the lamp did not illuminate during either short trip. All181
+  distinct successful saved0101 observations report OFF/count0; Mode03 is empty
+  in each session. No ON/automatic Mode02/0A snapshot acceptance is inferred.
+- Found11 intermediate stale UNKNOWN events and two final NO DATA events. One
+  event at09:31:11.433739 evaluates a response captured at09:31:11.434998, about
+  1.26ms later than the saved timer timestamp. Freshness correctly rejects future
+  evidence, but the caller passed an older tick after a newer publication.
+- Deterministic synthetic tests first failed: old ticks invalidated new MIL or
+  core-only evidence and changed a confirmed ON into ON_AFTER_GAP. Capture now
+  samples live observation time under its lock and ignores ticks older than the
+  latest source observation. No TTL relaxation, timestamp substitution in raw
+  inputs, command/transport changes or fuel model/state changes.
+- Regression tests preserve genuine source silence, independent MIL expiry,
+  truly future input and NO DATA -> UNKNOWN -> OFF_AFTER_GAP. Disabling the guard
+  again reproduced all three stale-tick failures; restored guard passes.
+- Verification passed: go test ./... -count=1; go test -race ./internal/mil
+  ./internal/live ./internal/server ./internal/fuel -count=1; make lint (vet and
+  gofmt); git diff --check. Earlier fuel-analysis checks and five web/fuel tests
+  also passed. Historical parts and owner scripts remain untouched.
+- Updated the trip analysis and MIL documentation. Rebuild dashboard before the
+  next run; normal command/flags stay the same. No adapter connection this turn.
+  Next: observe event history in another owner-authorized run and separately
+  investigate raw IAT. Historical UNKNOWN rows are preserved as original evidence.
+
+### 2026-11-07 — Three owner-recorded sessions: P0420 and fuel coverage
+
+- Reviewed fuel parts6–9 (parts7/8 are one rotated session) and MIL parts3–5
+  offline. No vehicle connection, ECU commands/clearing, application/settings
+  changes or modifications of private recordings/owner scripts.
+- All today's JSON/version/session/sequence/footer checks passed, including
+  rotation continuity. Saved SHA-256 and detailed evidence in
+  diagnostics/2026-11-07-trip-review.md. Fuel retention flag concerns an older
+  retired part; all today's sessions are present. MIL retention is untruncated.
+- At16:54:18.224874 MIL reports ON/count1 after OFF at16:54:12.027771. Automatic
+  03/07 both return P0420; frame00 cause also P0420, with RPM925.25, speed0,
+  ECT85, MAP44, STFT-1.5625%, LTFT-11.71875%. Mode0A returns7F0A11 unsupported.
+  This is observed owner-recorded physical-response evidence for those reads,
+  not completion of the full M3.3.7 checklist or confirmation of today's lamp.
+- Incident retains53pre/31post frames; pre_window_retained=true,
+  post_window_retained=false, had_gaps=true. Later frame00 replies are saved
+  independently. Last confirmed ON16:55:11; subsequent UNKNOWN is expired
+  evidence, not proof that MIL switched off.
+- Existing fuelanalyze exits0 for all three sessions:3.0342/20.9959/8.6779km,
+  covered estimated0.22486/2.13377/0.67248L, covered averages12.119/10.267/8.240
+  L/100km, time coverage47.23/97.30/75.29%. All incomplete and experimental;
+  no full-trip reconstruction or real consumption-accuracy claim.
+- First/second sessions still contain-40 IAT. Third-session numeric IAT is
+  +10..+29, but all30 IAT-blocked snapshots exceed20sTTL (age20.005..28.966s).
+  RPM/MAP/source expiry also affects fuel. Saved poll latency worsens before
+  the MIL event. Owner subsequently clarified that an OS process consumed CPU
+  and the entire host became severely unresponsive during this last recording.
+  Host overload supplies context for delayed polls/expiry; no saved CPU profile
+  quantifies its contribution. Do not infer an adapter/ECU defect from these
+  gaps. P0420 evidence and earlier-40IAT observations remain valid observations.
+- First two MIL sessions contain no UNKNOWN. Third has five intermediate
+  UNKNOWN/OFF_AFTER_GAP pairs plus final UNKNOWN, nonnegative MIL ages and
+  evidence of real global-source expiry. Yesterday's negative-age case is not
+  reproduced; this does not prove every freshness/reconnect scenario accepted.
+- Verification: offline CLI reports and targeted JSON/sequence/footer/hash/IAT
+  assertions; documentation diff check. Go/web suites not rerun: no code changes.
+  Missing .codex/START_HERE.md remains absent; root AGENTS and project docs read.
+- Next: preserve codes, confirm physical lamp/current DTC on a separately
+  authorized connection; independently investigate IAT and exhaust/O2/fueling
+  before any catalyst conclusion. Sparse O2 data cannot compare waveforms;
+  IAT-to-P0420 causality is unproven. M3.3.5/6 remain unimplemented.
+
+### 2026-11-07 — M3.3.5 design prepared
+
+- Owner approved proceeding with M3.3.5. Created feat/mil-analysis from
+  feat/mil-diagnostics, preserving the existing trip-review documentation.
+- Inspected MIL envelope/manifest, frame applicability, incident closure and
+  independent late diagnostic rows. Proposed reusable offline milanalysis plus
+  milanalyze text/JSON CLI, without changing live collection or joining fuel
+  sessions by guessed identifiers.
+- Concrete design: superpowers/specs/2026-11-07-mil-analysis-design.md. Includes
+  bounded reader, integrity/coverage, evidence provenance, heuristic thresholds,
+  insufficient-data outcomes and regression/real-recording checks. Spec reviewed
+  for scope, ambiguity and placeholders; documentation whitespace checks pass.
+- Implementation awaits review of the written specification required by the
+  brainstorming skill; no analyzer code or new hardware work in this entry.
+
+### 2026-11-07 — M3.3.5 implemented: offline MIL evidence and anomaly reports
+
+- Owner approved the written specification and implementation. Delivery stays
+  on feat/mil-analysis, based on feat/mil-diagnostics. No dependency/Go version,
+  live schedule/transport, fuel model/state or saved format changes. No hardware
+  connection, ECU command or clearing; owner scripts remain excluded.
+- Added milstore.Read: bounded read-only streaming with private regular-file
+  manifest checks, session selection, cross-rotation sequence/elapsed/closure
+  validation, typed payload checks and explicit corruption/retention/boundary
+  issues. Tests compare archive hashes, mtimes, directory contents and no lock.
+- Added milanalysis with bounded per-incident context, scoped MIL history and
+  separate stored/pending/permanent/frame00 evidence. Unassociated late replies
+  remain separate; contradictory successful details or absent decoded lists
+  become issues, never empty success or confirmed P0420. Error footer reason
+  and text are retained; closed files can still describe failed recording.
+- Freshness/unit/support-aware heuristics cover IAT, MAP context, trims, O2,
+  ECT, adapter supply and quality. Capture/generation dedup and continuity
+  boundaries prevent repeated snapshots or gaps becoming new measurements.
+  Every rule has an explicit insufficient-data outcome. Findings retain full
+  observation bounds/counts, up to8 evidence/counterexample samples and missing
+  data/next checks; thresholds are observational heuristics, not diagnoses.
+- Added milanalyze text/JSON CLI and build target. Required --input; optional
+  session and session-scoped incident filter; errors go to stderr. Text uses
+  Moscow time, JSON is deterministic. No source/transport packages appear in
+  go list -deps ./cmd/milanalyze. Context timeout30s and cancellation supported.
+- TDD reproduced missing feature behavior and review regressions: stale/future/
+  unsupported/wrong-unit input, cached values across gaps and A->B->A generation,
+  sparse vs dense O2, bad successful DTC details, unavailable polls, failed
+  footer, missing rule checks, bounded evidence and explicit frame truncation.
+  Reader and analyzer passed independent spec-compliance and quality reviews;
+  reported issues were reproduced, corrected and rechecked.
+- Fresh verification passed: go test ./... -count=1; go test -race ./... -count=1;
+  make lint (go vet/gofmt); make test-web (26 tests); make build-milanalyze and
+  final go build -o bin/milanalyze ./cmd/milanalyze; git diff --check.
+  Build target initially needed sandbox approval for the Go cache, then passed.
+- Offline binary acceptance on saved session7f688937053f9f030d0f6bbfc3477a07:
+  13events,14diagnostics,84unique context frames, P0420/empty initial03,
+  unsupported0A, incomplete post, insufficient O2, final UNKNOWN and4independent
+  late frame00 replies preserved. Repeated JSON byte-identical; input hashes
+  and mtimes unchanged. All6currently retained MIL sessions read without issues;
+  a sixth closed part appeared externally during development, without changing
+  the earlier three-trip manual analysis. Artifacts:
+  /private/tmp/lanos-milanalyze-acceptance-a8lwr_1n/report.txt and report.json.
+- README, PLAN, MIL_DIAGNOSTICS and NEXT_CONNECTION include offline commands and
+  limits. Sensor cause, true fuel accuracy, catalyst condition, CPU vs BLE delay
+  attribution and Android are not established. M3.3.6 and full M3.3.7 remain next.
+
+### 2026-11-07 — M3.3.6 diagnostics screen design prepared
+
+- Owner requested continuing after M3.3.5. Created feat/mil-dashboard from
+  1cb2909, preserving owner scripts. Read existing SSE/freshness, history UI,
+  server/CLI wiring and completed analyzer contracts. No product-code changes.
+- Proposed a separate diagnostics page in the existing style: current MIL and
+  timestamped DTC replies above saved sessions/events/findings, with report and
+  incident-context export. Read-only --mil-history-dir permits viewing saved
+  LIVE data with a SIM server and no adapter connection; labels stay separate.
+- Design: superpowers/specs/2026-11-07-mil-dashboard-design.md. Includes bounded
+  HTTP report/export, one analysis at a time, no background archive scan per SSE,
+  independent live freshness, partial evidence, safe DOM and unchanged ECU/fuel.
+- Builder check identified one contract ambiguity, resolved as an implementation
+  choice: recoverable reader issues return200/incomplete with surviving evidence;
+  fatal manifest/open/rotation errors return409. No owner-only open questions.
+- Whitespace/placeholder checks passed; application tests not rerun for this
+  design-only change. Written design awaits approval before implementation.
+  M3.3.6 remains unimplemented; no hardware, dependency or format changes.
+
+### 2026-11-07 — M3.3.6 implemented: dashboard diagnostics and read-only history
+
+- Owner approved the written design. Implemented on feat/mil-dashboard from
+  feat/mil-analysis; no merge to main. No vehicle connection, new ECU commands,
+  polling changes, dependencies/Go version, fuel model/state or archive format
+  changes. Owner scripts and private raw recordings remain outside commits.
+- Added /diagnostics.html with current MIL ON/OFF/UNKNOWN, validated 0101 count,
+  independent MIL/source TTL and transport freshness. Monotonic watchdog ages
+  evidence without SSE; source/generation changes and future/invalid replies
+  cannot silently display cached MIL as live. Last success is explicitly scoped
+  to this page opening. Stored/pending/permanent replies have their own times,
+  distinct empty/unsupported/unavailable/invalid/no-query states, and historical
+  labels. Unexplained ON retains the required warning, never “no errors”.
+- Read-only milstore.List and GET /api/mil/history/{sessions,report,incident}
+  provide validated catalog, existing milanalysis report and exact incident
+  selection with envelope/file/line provenance. Independent late replies remain
+  outside incident exports. Recoverable corruption retains evidence as incomplete;
+  fatal archive errors are sanitized. Known query keys/IDs only, one heavy request
+  per server without queue or telemetry lock, 8s context and 8MiB buffered output.
+- --mil-history-dir enables reading without Capture/writer/polling or directory
+  creation; --mil-record-dir implies the same history directory. Fuel directories
+  cannot overlap. UI separates current SIM from archive LIVE. Opening loads catalog
+  and latest report once; subsequent archive work is manual. Browser uses 10s
+  timeout, cancellation and request epochs; selection/error removes old reports
+  and export links. Saved text uses DOM/textContent. Events, DTC/freeze replies,
+  partial windows, findings/evidence/limits and insufficient_data are accessible.
+- TDD and independent task review covered HTTP/flags/immutability/concurrency,
+  stale/future/source/generation/DTC cases, request races/limits and safe DOM.
+  Review found pagehide stopped Feed/watchdog without pageshow recovery. Node
+  and actual Chrome-renderer lifecycle regression reproduced ON instead of
+  UNKNOWN. Fixed immediate invalidation on hide and one bounded Feed/watchdog
+  restart on persisted show, without archive rescan; regression now passes.
+- Verification passed: go test ./... -count=1; go test -race ./... -count=1;
+  make lint (vet/gofmt); make test-web (50/50); make build-dashboard (including
+  native BLE helper); make build-milanalyze; git diff --check. Full Go/race/lint
+  ran before the browser-only lifecycle fix; final web tests and dashboard build
+  ran afterward. Go-cache sandbox denials were rerun with required approval.
+- Chrome156 offline acceptance used the built SIM/fuel-off server, a synthetic
+  LIVE archive and saved session7f688937053f9f030d0f6bbfc3477a07. Verified P0420,
+  13 events/14 diagnostics, incomplete incident export excluding independent
+  replies, navigation/assets, SIM/LIVE labels, silent-SSE expiry, persisted
+  lifecycle events, disabled/empty/missing history and clean runtime. Input
+  hashes, mtimes and listings unchanged. Visually inspected 1280×800/390×844
+  pages, event/rule details and expanded raw DTC; no horizontal page overflow.
+  QA artifacts: /private/tmp/lanos-mil-dashboard-qa.1hSJ9G (local only).
+- README, PLAN, MIL_DIAGNOSTICS and NEXT_CONNECTION updated. Offline command:
+  ./bin/dashboard --source=sim --fuel=off --mil-history-dir=data/mil-events/live
+  then /diagnostics.html. Existing live/fuel launch remains documented. No
+  Android-device acceptance, physical M3.3.7 or new compatibility claim; actual
+  browser Back/Forward cache admission was not tested, only persisted lifecycle
+  handling. Next: separately authorized parked-car M3.3.7, physical lamp/current
+  codes and independent IAT investigation; do not clear DTC or infer catalyst
+  condition from sparse O2 evidence.
+
+### 2026-11-11 — Ignition-cycle and Mac sleep recovery investigation
+
+- Reviewed today's fuel parts c/d and MIL8/9 offline. Both sessions/footers and
+  sequences validate; original hashes/mtimes/sizes unchanged. No adapter access,
+  application/fuel-state changes, ECU commands or clearing. Owner scripts untouched.
+- First session: initial ECU standby recovers09:01:30. After RPM0 at09:03:41,
+  standby starts09:03:44; ATI stays successful but sampled0100 remains unavailable.
+  Owner confirms the engine was running again and dashboard restart was needed.
+  Restart09:05:17 restores data09:05:30. waitECU only repeats ATI/0100 without
+  escalating to reinitialization. Exact ECU/ELM failure cause is not established.
+- Second session: engine reaches RPM0 and ECU standby09:19:01. Host wall/elapsed
+  divergence311.667s matches owner-confirmed lid close/sleep. ATI times out after
+  wake; synchronization attempt ends09:24:42 with native Write and notification
+  unsubscribe timeouts, helper exit1. Source permanently reports restart-required
+  until09:31:25; counters remain3177commands/17errors/2gaps/1recovery. Another
+  128.374s clock divergence is observed, without separate owner attribution.
+- Traced terminal outcome through nativeConnection.Close, finishConnection,
+  parent BLE error and Stream transient classification. Generic cleanup failures
+  intentionally terminate today; increasing retries alone does not fix this path.
+  Required repair scopes: bounded ECU-standby escalation and explicit sleep/native
+  timeout recovery after fully reaping the helper, preserving fatal error evidence,
+  prompt synchronization, freshness, one source and persistent fuel totals.
+- Both sessions retain alreadyON/count1 with stored/pending/freeze P0420, Mode0A
+  unsupported, then UNKNOWN on lost source evidence; no confirmed lamp-off/new
+  OFF-to-ON. Physical lamp state not checked. Second drive8.8909km, covered model
+  estimate0.84787L/9.5348L100km, coverage71.47%; not measured consumption accuracy.
+- Four offline fuelanalyze/milanalyze reports exit0; focused existing probe/BLE/
+  helper recovery and cleanup tests pass. No full Go/race/web rerun for this
+  analysis/documentation-only change. Missing .codex/START_HERE.md remains absent.
+  Detailed timeline, evidence, hashes and next regressions:
+  diagnostics/2026-11-11-reconnect-review.md. No application repair/hardware
+  acceptance claimed; next physical checks require separate parked-car approval.
+
+### 2026-11-11 — Ignition/host-sleep recovery repairs implemented offline
+
+- Owner authorized both repair scopes from the investigation. Created
+  fix/ignition-sleep-recovery from29c2106, preserving owner scripts. No adapter
+  connection, dependency/Go version, new ECU command, fuel model/state/reset or
+  archive-format changes. Design and implementation plan are under superpowers/.
+- Continuous Stream now reinitializes the synchronized existing ECU session after
+  3 negative standby0100 checks with valid ATI, each separated by10s. Emits
+  ecu_reinitialize recovery and starts a new segment; full PID/DTC scan still
+  requires a valid bitmap. Initial availability resumes sooner; persistent absence
+  stays sparse/cancelable. Finite Run/Record loops remain bounded and unchanged.
+- Added blewire.ErrTimeout and timeout IPC code. Exact private/plain timeout
+  messages from pinned native Write and subscribe/unsubscribe calls are mapped
+  only at those operation boundaries; unknown/wrapped/permission causes are not
+  guessed from substrings. Native documents checked before targeted library source.
+- Helper failed writes now use the final error after cleanup, avoiding an early
+  untyped ack race. Recognized transient primary error plus timeout-only cleanup
+  can exit successfully with both causes in the final event. Parent retains typed
+  timeout, verifies/reaps the old child before Stream reconnects. Mixed/unknown
+  cleanup, normal-shutdown cleanup timeout, output failure and abnormal helper
+  exit remain errors. Existing prompt recovery still blocks writes until safe.
+- TDD RED reproduced indefinite ECU wait, untyped native timeout, failed-ack race,
+  compound timeout terminal stop and Stream failing to retry with retries0.
+  Additional RED caught overly broad acceptance of mixed cleanup; narrowed to
+  timeout-only leaves. Tests cover reinitialization without DTC storms, cancellation,
+  operation-specific matching, late final timeout after command deadline, output
+  errors, clean/failed child exit, close-before-reopen and joined fatal causes.
+- Fresh checks pass: go test ./... -count=1; go test -race ./... -count=1;
+  make lint; make test-web(50/50); make build-dashboard build-obdprobe
+  build-milanalyze. Native helper compiled on macOS with CGO. Sandbox-denied Go
+  cache checks were rerun with required approval. Formatting uses gofmt;
+  goimports is unavailable on PATH; no tool/dependency installation was needed.
+- README, PLAN and NEXT_CONNECTION describe new escalation and narrow timeout
+  exception, plus separate awake ignition-cycle and host sleep/wake checks.
+  Physical recovery, adapter wake, delivery of outstanding prompt and Android
+  remain unverified. No blind ATZ/prompt bypass. Independent whole-branch review
+  approved the offline implementation without findings. Built SIM/fuel-off HTTP
+  smoke passed snapshot/three pages and graceful SIGTERM exit0. Four recorded
+  source hashes/mtimes/sizes remain unchanged. Original recorded evidence remains
+  separate from synthetic regressions; delivery stays on the feature branch.
+
+### 2026-11-17 — Consolidate completed work into main
+
+- Owner requested integration into the primary branch and transition to
+  feat/android-mvp. GitHub confirms the primary branch is main. Fetched origin;
+  no open pull requests. All completed feature/fix branch heads are ancestors of
+  fix/ignition-sleep-recovery at996703f; fast-forwarded main from7cc6aa8 to that
+  head, preserving the existing commits without conflicts.
+- Integration includes M6.1 fuel analytics, pending DTC, M3.3 MIL capture/offline
+  analysis/dashboard and ignition/host-sleep recovery. No product changes were
+  added during consolidation. Owner scripts and private recordings were left
+  untouched and outside commits.
+- Fresh offline validation passed: go test ./... -count=1;
+  go test -race ./... -count=1; make lint; make test-web(50/50);
+  make build-dashboard build-obdprobe build-milanalyze build-fuelanalyze;
+  git diff --check. Lint initially lacked sandbox access to the Go cache and
+  passed when rerun with the required permission. Native BLE helper compiled.
+- Next: push integrated main, update the existing feat/android-mvp branch from
+  main while preserving its two Android planning commits, then continue there.
+  Android implementation is not started by this integration. No adapter was
+  contacted; physical ignition/sleep recovery and Android acceptance remain
+  pending as described in NEXT_CONNECTION.md.
+
+### 2026-11-17 — Android branch synchronized
+
+- Integrated main161cd4d was pushed to origin. Switched to the existing
+  feat/android-mvp tracking branch and merged main, retaining both original
+  Android planning commits. Resolved the sole conflict in PLAN.md by preserving
+  all completed milestones and appending the Android handoff section.
+- Compared the result with validated main: only ANDROID_MVP_CODEX.md, the
+  Android PLAN.md section and this status entry differ. Product source, web
+  assets, dependencies and build files are identical to the tested main tree;
+  git diff --check passes. No additional product test run is needed for these
+  documentation differences. Next work is M5.1 per ANDROID_MVP_CODEX.md, pending
+  the owner's next instruction; no Android implementation or car test performed.

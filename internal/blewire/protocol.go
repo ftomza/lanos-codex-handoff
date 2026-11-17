@@ -6,6 +6,7 @@ import "errors"
 var (
 	ErrDisconnected = errors.New("ble device disconnected")
 	ErrUnavailable  = errors.New("ble target unavailable")
+	ErrTimeout      = errors.New("ble native operation timed out")
 )
 
 const (

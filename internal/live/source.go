@@ -36,6 +36,8 @@ type Source struct {
 	workerErr               error
 	started, closed, active bool
 	ecuSeen                 bool
+	observer                func(telemetry.Snapshot)
+	milTTL                  time.Duration
 }
 
 func New(cfg probe.Config, open func(context.Context) (elm327.Transport, error)) (*Source, error) {
@@ -46,11 +48,15 @@ func New(cfg probe.Config, open func(context.Context) (elm327.Transport, error))
 	if err != nil {
 		return nil, err
 	}
-	return newSource(runner.Stream, cfg.Transport), nil
+	s := newSource(runner.Stream, cfg.Transport)
+	if cfg.MILInterval > 0 {
+		s.milTTL = max(15*time.Second, 3*cfg.MILInterval)
+	}
+	return s, nil
 }
 
 func newSource(stream streamFunc, transport string) *Source {
-	s := &Source{stream: stream, now: time.Now, changed: make(chan struct{}), workerDone: make(chan struct{}), version: 1}
+	s := &Source{stream: stream, now: time.Now, changed: make(chan struct{}), workerDone: make(chan struct{}), version: 1, milTTL: 180 * time.Second}
 	s.latest = telemetry.Snapshot{Source: telemetry.Live, Transport: "ble_gatt", SourceDetail: "elm327_ble", Health: telemetry.Connecting, Message: "Подключение к адаптеру", Signals: initialSignals()}
 	if transport == "serial" {
 		s.latest.Transport, s.latest.SourceDetail = "serial_spp", "elm327_serial"
@@ -151,4 +157,23 @@ func (s *Source) Close() error {
 }
 
 // Called under mu. No queue grows when readers are slower than the adapter.
-func (s *Source) publish() { s.version++; close(s.changed); s.changed = make(chan struct{}) }
+func (s *Source) publish() {
+	s.version++
+	close(s.changed)
+	s.changed = make(chan struct{})
+	if s.observer != nil {
+		s.observer(s.latest.Clone())
+	}
+}
+
+// SetObserver attaches before Start. The callback must be nonblocking and must
+// not call Source methods; it runs for every publication, independent of Read.
+func (s *Source) SetObserver(observer func(telemetry.Snapshot)) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.started || s.closed || s.observer != nil || observer == nil {
+		return fmt.Errorf("source observer must be attached once before start")
+	}
+	s.observer = observer
+	return nil
+}

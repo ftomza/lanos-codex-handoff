@@ -79,6 +79,7 @@ func (c *Computer) Reset(revision uint64, defaultFactor bool, now time.Time) err
 		return err
 	}
 	c.previous = nil
+	c.emitDiagnostic(now, "reset")
 	return nil
 }
 func (c *Computer) Apply(action string, liters float64, confirmed bool, revision uint64, token string, now time.Time) error {
@@ -106,5 +107,9 @@ func (c *Computer) Apply(action string, liters float64, confirmed bool, revision
 	next := c.state.clone()
 	next.PreviousFactor = new(next.Factor)
 	next.Factor = factor
-	return c.commit(next, now)
+	if err := c.commit(next, now); err != nil {
+		return err
+	}
+	c.emitDiagnostic(now, "calibration_"+action)
+	return nil
 }

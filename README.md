@@ -36,7 +36,7 @@ go test ./...
 go vet ./...
 go build ./...
 make lint
-node --test web/model.test.mjs web/feed.test.mjs
+make test-web
 ```
 
 Open http://127.0.0.1:8080. The command runs without a car or adapter. HTML,
@@ -79,7 +79,62 @@ timestamps are shown in the browser's local timezone (hover for the UTC timestam
 These are host timestamps, not ECU capture times. These instruments do not
 replace the vehicle's factory instruments.
 
+## Diagnostics screen (M3.3.6)
+
+Open [Diagnostics](http://127.0.0.1:8080/diagnostics.html) from the instruments
+or trip analytics. Current Check Engine uses the existing shared SSE source:
+ON/OFF require fresh source and independent MIL timestamps; expired, future,
+unavailable or disconnected readings become UNKNOWN. DTC replies keep their own
+status and timestamps. Last successful MIL time refers only to this page opening.
+
+To view saved LIVE evidence without connecting an adapter:
+
+```sh
+make build-dashboard
+./bin/dashboard --source=sim --fuel=off --mil-history-dir=data/mil-events/live
+```
+
+Current SIM and archive LIVE remain separately labelled. Reading history does
+not enable MIL polling, recording or hardware access. The existing live/fuel
+launch command and fuel state remain unchanged. `--mil-record-dir` also exposes
+that directory as history; if both directory flags are given they must match.
+MIL and fuel directories must be separate.
+
+The page loads the catalog and latest saved session once, then reads only after
+selection or manual refresh. Active sessions, retention and damaged rows retain
+incomplete flags, surviving evidence and reader issues. Findings show confidence,
+evidence provenance, missing data and next checks; sparse O2 does not diagnose a
+catalyst. JSON report and exact session/incident snapshot links are read-only
+validated exports, not full raw archives. Requests have an 8-second server limit,
+a 10-second browser timeout, an 8 MiB response limit and one heavy request at a
+time. Busy/expired/changed archives require explicit retry. No clear/write controls.
+Desktop tests do not establish physical Android or hardware compatibility.
+
 ## Live dashboard (M4)
+
+MIL context recording (M3.3.1–M3.3.4, offline verified) is opt-in:
+add `--mil-record-dir=data/mil-events/live --mil-interval=5s` to the live command.
+The shared connection monitors 0101, captures 60s before/30s after an observed
+MIL-on event and queues read-only DTC/freeze-frame requests. Already-on MIL and
+lost/stale data are explicit. Fuel totals are read without advancing accounting.
+Recording status appears in `/api/snapshot` as `mil_recording`; JSONL and raw
+diagnostics are saved privately. M3.3.5 now analyzes saved incidents offline;
+M3.3.6 adds the read-only `/diagnostics.html` screen. See [MIL_DIAGNOSTICS.md](docs/MIL_DIAGNOSTICS.md)
+and [next connection](docs/NEXT_CONNECTION.md). Owner recordings on 2026-11-07
+contain P0420 stored/pending/frame00 and an unsupported Mode0A reply; ATH1 and
+the remaining physical acceptance checklist are untested.
+
+```sh
+make build-milanalyze
+./bin/milanalyze --input=data/mil-events/live
+./bin/milanalyze --input=data/mil-events/live --json
+```
+
+The offline report preserves MIL transitions, separate diagnostic statuses and
+freeze-frame context, input freshness, gaps and bounded evidence for heuristic
+findings. It states insufficient data for sparse O2/short IAT histories and does
+not diagnose a failed component. Use `--session=<saved-id>` to select a session;
+`--incident=<saved-id>` additionally requires `--session`. No adapter is opened.
 
 ```sh
 make build-dashboard
@@ -117,6 +172,10 @@ ignition may be off; ignition position is not measured. Three failed core rounds
 enter standby; one unavailable PID or measured zero RPM does not. Standby checks
 ATI/0100 after each 10s pause, with command timeouts potentially extending that
 interval. Fresh discovery/new generation is required before resuming values.
+After three unsuccessful standby checks with a responsive adapter, LIVE repeats
+initialization/discovery on the synchronized connection. Persistent ECU absence
+therefore causes sparse reinitialization, without a full PID/DTC scan until the
+ECU actually answers. The delay includes three 10s pauses plus command timeouts.
 Old values/instantaneous fuel disappear; trip totals remain and gaps are marked.
 
 Default `--retries=2` gives two additional attempts **per reconnect burst**
@@ -130,14 +189,17 @@ unsupported initialization, unknown errors and actual helper cleanup failures
 remain terminal, with HTTP available as LIVE/disconnected and the error shown.
 The browser reconnect button only retries SSE/server access.
 Rebuild both dashboard and helper together. Expected BLE disconnect/target-not-found
-events permit recovery only after clean helper shutdown; forced termination or
-cleanup failures remain explicit. Native scan ends before the parent's hard
+events permit recovery only after helper completion. The pinned native backend's
+recognized Write/notification timeouts also permit retry: their final event
+retains any recognized unsubscribe timeout, and the old helper must exit cleanly
+and be reaped before another opens. Unknown cleanup errors, normal-shutdown
+cleanup timeouts and nonzero/forced exits remain explicit failures. Native scan ends before the parent's hard
 connection deadline where possible. Vgate sleep/wake behavior remains unverified.
 Stop the dashboard when diagnostics are finished; waiting continues read-only
 checks and does not guarantee adapter sleep or prevent battery drain.
 Ctrl+C cancels polling, closes/reaps the helper and reports actual cleanup errors.
-No in-memory command history or automatic telemetry file is created in live mode;
-use the separate recorder for raw evidence, after stopping the dashboard.
+Recording remains opt-in. M6.1 can save fuel diagnostics within the dashboard;
+use the separate obdprobe recorder for raw command evidence, after stopping the dashboard.
 
 ## Fuel computer (M6)
 
@@ -165,9 +227,38 @@ are visible. `--fuel-reset-state` explicitly starts a new trip/factor 1; do not
 leave it in ordinary startup. Read [FUEL_COMPUTER.md](docs/FUEL_COMPUTER.md) for
 models, flags, state/lock recovery, coverage, API and calibration requirements.
 
+## Fuel diagnostics and saved history (M6.1)
+
+Recording is optional and uses the same fuel computer and adapter stream as the
+instruments. It adds input quality, IAT warnings and speed-density intermediates;
+these checks do not establish fuel accuracy. Existing M6 state remains compatible.
+
+```sh
+make build-dashboard build-fuelanalyze
+./bin/dashboard --source=sim --fuel-model=speed_density \
+  --fuel-record-dir=data/fuel-history/sim
+# After Ctrl+C: analyze the saved rows without opening Bluetooth.
+./bin/fuelanalyze --input=data/fuel-history/sim --json
+./bin/dashboard --source=sim --fuel=off --fuel-history-dir=data/fuel-history/sim
+```
+
+Open http://127.0.0.1:8080/analytics.html, or use the dashboard's history link.
+Select a saved session/time range for charts, modes, distributions, segment
+averages and JSON export. History never substitutes current live readings.
+Use separate SIM/LIVE directories. Default retention is eight 16 MiB parts;
+old managed parts rotate out with an explicit truncation flag. New files are
+0600, new directories 0700. Recording uses a bounded queue and stops visibly on
+failure while instruments continue. See [FUEL_COMPUTER.md](docs/FUEL_COMPUTER.md)
+for limits, schema, crash recovery and all flags; the next agreed vehicle session
+is described in [NEXT_CONNECTION.md](docs/NEXT_CONNECTION.md). This feature has
+only been tested with synthetic data; Android and physical M6.1 remain untested.
+
 ## HTTP contract
 
 - `GET /`: dashboard and locally served static assets.
+- `GET /analytics.html`: saved fuel history screen (requires a history directory).
+- `GET /api/fuel/history/sessions`: saved session catalog.
+- `GET /api/fuel/history/report`: bounded JSON analysis; optional `session`, `from`, `to`, `points`.
 - `GET /api/snapshot`: current snapshot, with freshness recalculated on request.
 - `GET /events`: SSE `telemetry` events, latest snapshot immediately on every
   connection, then every 250ms. There is no historical replay or event backlog.
@@ -240,6 +331,7 @@ See [third-party notices](docs/THIRD_PARTY.md) when distributing native binaries
 | `--recovery-timeout` | `30s` | Wait for a delayed prompt without sending commands. |
 | `--retries` | `2` | Additional attempts, maximum 5; backoff 0.5, 1, 2, 4, 4 seconds. Recording uses one total budget for the entire run. |
 | `--scan-supported` | false | Follow advertised bitmap continuations and sample declared PIDs. |
+| `--read-pending` | false | Finite probe only: additionally read Mode 07 pending DTCs; separate report, no clearing. |
 | `--json` | false | One JSON report on stdout instead of a human-readable command audit. |
 | `--output` | empty | Exclusive-create report JSON or recording JSONL, permissions 0600; recording mode generates a path in diagnostics/ when omitted. |
 | `--record` | false | Continuous capability-gated trip recording to private JSONL; start while parked and leave unattended. |
@@ -252,6 +344,15 @@ reads `0100` and `ATDPN`, queries adapter voltage `ATRV`, then RPM/coolant/speed
 only if advertised, and reads stored DTCs with `03`. A full scan follows each
 continuation only when bit 32 permits it. Unknown decoder payloads are preserved
 as `raw_only`, with no invented numeric value. MAF/fuel level are never assumed.
+
+For a separately agreed parked Check Engine investigation, add `--read-pending`
+to the finite probe. Mode 07 runs after the existing Mode 03 read, with the same
+timeouts/recovery and a separate optional `pending_dtcs` result. An unavailable,
+rejected or malformed response stays unavailable; only a valid empty response
+means no pending codes returned. Permanent Mode 0A is not queried. This option
+cannot combine with `--record`/`--list-ports`; default probes and the dashboard
+schedule remain unchanged. On 2026-10-29 one physical read returned MIL on with
+empty stored and pending lists; the fault cause remains unknown (STATUS.md).
 
 Each report includes per-command start/end timestamps, raw bytes (CR escaped in
 JSON), status/error, response timestamps and per-PID support evidence. `NO DATA`
@@ -306,7 +407,12 @@ remain unresolved; longer endurance/reconnect are untested. These recorder sessi
 - `internal/telemetry`: source contract and domain snapshots/freshness.
 - `internal/sim`: deterministic simulator implementing the source contract.
 - `internal/live`: native read-only stream adapter, independent freshness and bounded state.
-- `internal/fuel`: estimates, monotonic trip/coverage, local state and calibration.
+- `internal/fuel`: estimates, monotonic trip/coverage, local state, calibration and coherent diagnostics.
+- `internal/fuelhistory`: bounded recording and shared streaming offline analysis.
+- `cmd/fuelanalyze`: saved-history CLI; no vehicle/state access.
+- `internal/milstore`: bounded private MIL recording and read-only archive reader.
+- `internal/milanalysis`: offline evidence, incident quality and heuristic findings.
+- `cmd/milanalyze`: text/JSON MIL reports from saved archives; no vehicle access.
 - `internal/server`: HTTP transport and telemetry distribution.
 - `web`: embedded HTML, CSS, JavaScript; no third-party assets.
 - `internal/elm327`: read-only allowlist, framing, recovery, parsers and decoders.

@@ -10,6 +10,8 @@ import (
 )
 
 type Computer struct {
+	iat        iatTracker
+	diag       diagnosticObserver
 	pending    *Calibration
 	mu         sync.Mutex
 	cfg        Config
@@ -41,6 +43,7 @@ func newComputer(cfg Config, source string, store Store, now time.Time, reset bo
 		return nil, err
 	}
 	c := &Computer{cfg: cfg, store: store, lastSave: now}
+	c.diag.origin = now
 	if loaded != nil {
 		if err := loaded.validate(); err != nil {
 			return nil, err
@@ -77,13 +80,17 @@ func (c *Computer) Observe(now time.Time, s telemetry.Snapshot) {
 	if c.method == "" && s.Health == telemetry.Connected {
 		c.method = Select(c.cfg, s)
 	}
+	c.iat.observe(now, s)
 	c.advance(now)
+	c.emitDiagnostic(now, "")
 }
 func (c *Computer) Tick(now time.Time) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if !c.closed {
+		c.iat.observe(now, c.latest)
 		c.advance(now)
+		c.emitDiagnostic(now, "")
 	}
 }
 
@@ -108,14 +115,18 @@ func (c *Computer) Close() error {
 	if c.closed {
 		return c.closeErr
 	}
+	c.emitDiagnostic(time.Now(), "computer_close")
 	c.closed = true
-	c.closeErr = errors.Join(c.save(time.Now(), true), c.store.Close())
+	c.closeErr = errors.Join(c.save(time.Now(), true), c.store.Close(), c.diag.err)
 	return c.closeErr
 }
 
 func (c *Computer) View(now time.Time) telemetry.Fuel {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	return c.view(now)
+}
+func (c *Computer) view(now time.Time) telemetry.Fuel {
 	s := c.state
 	f := telemetry.Fuel{Status: "unavailable", Reason: c.result.Reason, Method: c.method, Provenance: c.result.Provenance, Confidence: c.result.Confidence,
 		FlowUntil: c.result.Until, SpeedUntil: c.speedUntil, LowSpeed: c.cfg.LowSpeed, Speed: c.speed,
@@ -140,5 +151,15 @@ func (c *Computer) View(now time.Time) telemetry.Fuel {
 		f.Persistence = "persistence_error"
 		f.PersistenceError = c.saveErr.Error()
 	}
-	return f.At(now, c.latest.At(now, c.cfg.StaleAfter).Health)
+	f.Intermediates = c.result.Terms.Clone()
+	if f.Intermediates != nil {
+		f.Intermediates.Factor = s.Factor
+		f.Intermediates.AdjustedFlowLPH = f.FlowLPH
+	}
+	if c.diag.err != nil {
+		f.DiagnosticsError = c.diag.err.Error()
+	}
+	f = f.At(now, c.latest.At(now, c.cfg.StaleAfter).Health)
+	c.quality(&f)
+	return f
 }
