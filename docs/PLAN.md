@@ -230,3 +230,8 @@ Android remain pending. See FUEL_COMPUTER.md and NEXT_CONNECTION.md.
 7. Обновлены `docs/STATUS.md` и документация Fuel Computer.
 
 Не изменяй диагностические команды ЭБУ и не добавляй операции записи. Все новые функции реализуй поверх уже доступной телеметрии.
+
+
+## M5 Android implementation handoff (2026-11-17)
+
+Detailed Codex brief: [ANDROID_MVP_CODEX.md](ANDROID_MVP_CODEX.md). Implement M5.1 (Android Kotlin Gradle bootstrap, local WebView dashboard, simulator, emulator-ready debug APK) first and stop for review. Subsequent milestones: M5.2 BLE GATT, M5.3 ELM327/live RPM, M5.4 telemetry integration, M5.5 Fuel Computer, M5.6 tablet hardening. Android hardware acceptance is pending; do not infer it from MacBook BLE results.
