@@ -1515,3 +1515,25 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   smoke passed snapshot/three pages and graceful SIGTERM exit0. Four recorded
   source hashes/mtimes/sizes remain unchanged. Original recorded evidence remains
   separate from synthetic regressions; delivery stays on the feature branch.
+
+### 2026-11-17 — Consolidate completed work into main
+
+- Owner requested integration into the primary branch and transition to
+  feat/android-mvp. GitHub confirms the primary branch is main. Fetched origin;
+  no open pull requests. All completed feature/fix branch heads are ancestors of
+  fix/ignition-sleep-recovery at996703f; fast-forwarded main from7cc6aa8 to that
+  head, preserving the existing commits without conflicts.
+- Integration includes M6.1 fuel analytics, pending DTC, M3.3 MIL capture/offline
+  analysis/dashboard and ignition/host-sleep recovery. No product changes were
+  added during consolidation. Owner scripts and private recordings were left
+  untouched and outside commits.
+- Fresh offline validation passed: go test ./... -count=1;
+  go test -race ./... -count=1; make lint; make test-web(50/50);
+  make build-dashboard build-obdprobe build-milanalyze build-fuelanalyze;
+  git diff --check. Lint initially lacked sandbox access to the Go cache and
+  passed when rerun with the required permission. Native BLE helper compiled.
+- Next: push integrated main, update the existing feat/android-mvp branch from
+  main while preserving its two Android planning commits, then continue there.
+  Android implementation is not started by this integration. No adapter was
+  contacted; physical ignition/sleep recovery and Android acceptance remain
+  pending as described in NEXT_CONNECTION.md.
