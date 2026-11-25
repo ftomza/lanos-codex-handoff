@@ -472,3 +472,8 @@ read-only MIL reader, библиотека `milanalysis`, CLI `milanalyze` (те
 **M3.3.7** — отдельная физическая проверка на стоящем автомобиле после согласования. Не выполнялась в этой работе.
 
 После каждого этапа обновляй `docs/[STATUS.md](http://STATUS.md)`, фиксируй результаты тестов, ограничения и следующий шаг. Не переходи к физическим экспериментам без отдельного подтверждения.
+
+
+## M7 — Lanos Signal Gateway
+
+See [SIGNAL_GATEWAY.md](SIGNAL_GATEWAY.md) for architecture, candidate signals, electrical safety constraints and milestones M7.0–M7.8. Start with cluster identification and evidence-backed pinout research only. Hardware and Android integration remain unverified. Work in feat/signal-gateway independently of Android MVP.
