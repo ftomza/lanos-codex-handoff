@@ -83,6 +83,52 @@ recovery acceptance is claimed.
 - If using WebView, plan a native Android bridge for direct adapter access; a Go backend on MacBook is not a practical permanent in-car dependency.
 Acceptance: documented architecture decision and Android test checklist.
 
+M5.1 completed on 2026-11-17. The Kotlin app packages the existing dashboard
+in a local WebView and supplies simulated instruments and connection states.
+The debug APK passed offline testing in a 1280×800 landscape viewport on
+the API 37 emulator. On 2026-11-23 the owner confirmed the simulator dashboard
+and its layout on the physical Teclast P85. BLE validation belongs to M5.2.
+Build and launch instructions are in [android/README.md](../android/README.md).
+
+M5.2 passed on the physical Teclast P85 on 2026-11-23. The owner confirmed
+that the Android BLE check found IOS-Vlink and received `ELM327 v2.3` in
+response to `ATI`. M5.3 covers live RPM and coolant temperature from the ECU
+plus adapter supply voltage from `ATRV`, each displayed on the Android dashboard.
+
+M5.3 passed its physical check on 2026-11-23. The owner confirmed live RPM,
+coolant temperature and adapter supply voltage on the Teclast P85 with Vgate.
+See [Android run instructions](../android/README.md#first-live-dashboard-check).
+
+M5.4 adds capability-gated fuel inputs and foreground ECU/BLE recovery.
+The APK was built, verified offline and installed on the Teclast P85.
+The owner confirmed that live readings returned after cycling the ignition.
+A separate forced BLE-drop test remains pending.
+See [the Android recovery checklist](../android/README.md#check-ignition-and-ble-recovery).
+
+M5.5 adds the speed-density fuel estimate, trip totals with coverage,
+persistent SIM/LIVE profiles, explicit IAT opt-in and reversible calibration.
+Go and Kotlin use the same golden fixtures. The owner saw the LIVE estimate
+while driving. Consumption accuracy remains pending. See the
+[Android fuel checklist](../android/README.md#проверить-топливный-компьютер).
+M5.6 starts with a native foreground LIVE journal and Android JSONL export.
+After the 2026-11-26 traces, the Android LIVE path adds a bounded ATI
+recovery probe for a missed prompt from a known non-ATI command.
+The next physical checks cover tablet sleep and BLE recovery.
+See [the journal instructions](../android/README.md#журнал-live-и-экспорт-jsonl).
+
+The Android MIL increment adds capability-gated `0101` and event-triggered
+`03`/`07` on the same connection. The LIVE journal links DTC replies and
+pre/post context by incident ID. The LIVE badge and saved events show
+independent replies and offline code descriptions. Physical lamp comparison
+remains pending.
+See [the Android MIL check](../android/README.md#check-engine-и-коды-неисправностей).
+
+Android trip history opens saved LIVE sessions offline with grouped JSONL
+parts, recorded totals, time coverage, eight timeline charts and
+connection/MIL markers. The original JSONL parts remain available from the
+export action. See [the Android history instructions](../android/README.md#журнал-live-и-экспорт-jsonl).
+The journal can also preview and remove startup-only recordings after confirmation.
+
 ## Hardware test checklist
 1. With ignition on and car safely parked, use the observed IOS-Vlink BLE profile with obdprobe --transport=ble after make build-obdprobe. Classic SPP and /dev/cu.* enumeration remain an alternative.
 2. If port exists, read `ATI`, `ATDPN`, `0100`; then `010C`, `0105`, `010D`; capture raw output.

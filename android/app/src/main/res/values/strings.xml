@@ -1,0 +1,27 @@
+<resources>
+    <string name="trip_journal_loading">Загружаем записи…</string>
+    <string name="trip_journal_title">Журнал LIVE</string>
+    <string name="trip_journal_return">К приборке</string>
+    <string name="trip_journal_empty">Записей пока нет. Журнал начнётся при следующем запуске LIVE.</string>
+    <string name="trip_journal_choose">Выберите поездку, чтобы открыть графики.</string>
+    <string name="trip_journal_list_error">Не удалось открыть список записей.</string>
+    <string name="trip_journal_picker_unavailable">Системное окно выбора файла недоступно</string>
+    <string name="trip_journal_saved">Журнал сохранён</string>
+    <string name="trip_journal_export_error">Не удалось сохранить журнал</string>
+    <string name="trip_journal_partial">Часть файлов не открылась. Исходные файлы доступны через экспорт JSONL.</string>
+    <string name="trip_journal_export">Экспорт JSONL</string>
+    <string name="trip_journal_export_parts">Выбрать часть записи (имена в UTC)</string>
+    <string name="trip_journal_row">%1$s · частей %2$d</string>
+    <string name="trip_journal_clear">Удалить пустые</string>
+    <string name="trip_journal_clear_action">Удалить</string>
+    <string name="trip_journal_clear_checking">Проверяем записи…</string>
+    <string name="trip_journal_clear_removing">Удаляем пустые поездки…</string>
+    <string name="trip_journal_clear_confirm">Найдено пустых поездок — %1$d. Удалить их с планшета?</string>
+    <string name="trip_journal_clear_none">Пустых поездок нет</string>
+    <string name="trip_journal_clear_done">Удалено поездок — %1$d</string>
+    <string name="trip_journal_clear_partial">Удалено поездок — %1$d. Полностью удалить не удалось — %2$d.</string>
+    <string name="trip_journal_clear_error">Не удалось очистить журнал</string>
+    <string name="trip_history_loading">Читаем поездку…</string>
+    <string name="trip_history_back">К списку поездок</string>
+    <string name="trip_history_error">Не удалось открыть поездку. Вернитесь к списку и попробуйте ещё раз.</string>
+</resources>

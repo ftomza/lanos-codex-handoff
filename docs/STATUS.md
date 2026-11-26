@@ -1,6 +1,13 @@
 # Session handoff / status
 
 ## Current state
+On `feat/android-mvp`, M5.5 is implemented and the signed Android debug
+build is installed on the Teclast P85. The prior ignition-cycle scenario
+passed on the device. The owner saw a LIVE fuel estimate after enabling
+the experimental IAT setting during road testing. Fuel accuracy and trip
+coverage remain unverified.
+See [the Android checklist](../android/README.md#проверить-топливный-компьютер).
+
 M3.3.5 is implemented and offline-verified on `feat/mil-analysis`: bounded
 read-only MIL archive reader, reusable evidence/heuristic analysis, and
 `milanalyze` Russian text/versioned JSON reports. Current saved P0420 replay
@@ -1550,3 +1557,479 @@ Codex: append date, milestone, commands, test outcomes, blockers and next steps 
   git diff --check passes. No additional product test run is needed for these
   documentation differences. Next work is M5.1 per ANDROID_MVP_CODEX.md, pending
   the owner's next instruction; no Android implementation or car test performed.
+
+### 2026-11-17 — M5.1 started, paused by owner
+
+- Started on feat/android-mvp from82f342e. Read the Android brief and project
+  documentation; added an implementation plan under superpowers/plans/ and an
+  uncommitted Android Gradle scaffold plus simulator JVM test source.
+- Found installed Android Studio JBR25, SDK platform37, build-tools36.0.0 and
+  Medium_Phone_API_37.0 AVD. Downloaded Gradle9.6.0 to temporary storage and
+  verified its official SHA-256. Proposed AGP9.5.1/built-in Kotlin2.2.10,
+  minSdk26/targetSdk35/compileSdk37; no Go dependency changes.
+- Owner requested pause during the initial :app:testDebugUnitTest invocation.
+  Interrupted it (exit130) before compilation/test results. M5.1 is incomplete:
+  simulator/WebView implementation, wrapper, debug APK and acceptance remain
+  pending. No emulator launch, BLE implementation, vehicle access, commits or
+  push performed for M5.1. Resume with the expected failing JVM tests, then
+  implement the simulator/local WebView and complete validation.
+
+### 2026-11-17 — M5.1 Android simulator APK ready
+
+- Resumed on `feat/android-mvp`. Added the Kotlin app under `android/` with
+  the checksum-pinned Gradle 9.6.0 wrapper, AGP 9.5.1 and built-in Kotlin
+  2.2.10. Built using Android Studio JBR 25 and Build Tools 36.0.0.
+  The app uses minSdk 26 for native time and WebView APIs, targets the
+  Android 15 tablet with targetSdk 35, and compiles against installed SDK 37.
+- The WebView loads the shared instruments from a fixed local HTTPS origin.
+  The APK requests zero Android permissions. Kotlin sends one snapshot at a
+  time through a WebMessagePort and pauses the feed with the Activity. The
+  60-second simulation includes missing voltage, stale readings and a
+  six-second disconnect. The stale phase uses a synthetic older capture
+  timestamp. The Android screen covers instruments and connection status.
+- Independent review found that WebView delivery latency could extend the
+  life of an old frame. The Android feed now accounts for that latency in the
+  shared freshness model. A regression test failed before the fix and passed
+  after it, including recovery on the next timely frame.
+- Passed `./android/gradlew -p android :app:testDebugUnitTest
+  :app:assembleDebug :app:lintDebug` and a fresh JVM rerun with `--rerun`
+  (7/7). Android lint reported 0 errors and 6 warnings about versions,
+  orientation, backup configuration and the default debug launcher icon.
+  Passed `node --test android/tests/feed.test.mjs` (5/5),
+  `go test ./... -count=1`, `make lint`, `make test-web` (50/50) and
+  `git diff --check`. Gradle dependency resolution on this host needed
+  the session proxy. Go checks needed sandbox access to the Go cache.
+- Installed with `adb -s emulator-5562 install -r
+  android/app/build/outputs/apk/debug/app-debug.apk`. Used
+  `Medium_Phone_API_37.0` with WebView 145.0.7632.218, Wi-Fi and mobile
+  data off, and system rotation locked to landscape to test a 1280×800
+  viewport. ADB and DevTools confirmed fullscreen layout, SIMULATOR
+  labeling, changing instruments, independent voltage unavailability,
+  stale/disconnected dashes, automatic recovery and fresh readings after
+  backgrounding and resuming. The first portrait run exposed the emulator
+  policy that can override the app's orientation request on large displays.
+- Debug APK at `android/app/build/outputs/apk/debug/app-debug.apk`.
+  `apksigner verify` passed. SHA-256
+  `2e7033dc20f2ef031f3312254e11c1590f95ad0ca47a01e8a27bceee9e281e32`.
+  Installation and launch commands are in
+  [android/README.md](../android/README.md). Teclast P85 acceptance is
+  pending. Work stops at M5.1, with BLE GATT scoped to M5.2.
+
+### 2026-11-17 — M5.1 layout fix for the default phone emulator
+
+- The owner's screenshot exposed vertical overflow at 914×411 CSS px and
+  labels offset from the speedometer arc. Reproduced both in the previous
+  APK. At that viewport the status panel ended at y=464 px and the extreme
+  scale labels were displaced by 73–79 px.
+- Android CSS now keeps the dial and its scale in the SVG's aspect ratio.
+  The compact landscape layout retains the source label, instruments,
+  warnings and timestamps. In the rebuilt APK at 914×411 the status panel
+  ends at y=341 px, the footer with a forced warning at y=394 px, and the
+  scale labels align with the arc to within 1 CSS px. Also verified the
+  1280×800 layout, including the warning state. Used the API 37 emulator
+  with Wi-Fi and mobile data disabled.
+- Passed Android wrapper `:app:testDebugUnitTest :app:assembleDebug
+  :app:lintDebug` (0 lint errors and 6 existing warnings), Android JS tests
+  (5/5), `make test-web` (50/50) and `apksigner verify`. Updated debug APK
+  SHA-256 `a06be8694e1cbe00d7f7969993a20eee59fdcda30f28c967b1ec39b97eb26218`.
+  The Teclast P85 layout still needs a physical check.
+
+### 2026-11-23 — M5.1 checked on the Teclast P85
+
+- ADB recognized the USB-connected Teclast P85 as `P85_ROW`. Installed the
+  updated debug APK from the layout fix with `adb install -r` and launched
+  it with `adb shell am start -W -n io.github.ftomza.lanos/.MainActivity`.
+  Installation succeeded and Android reported a successful cold launch.
+- The owner confirmed the simulator dashboard and its layout on the tablet.
+  This closes the manual device check for M5.1. BLE and vehicle telemetry
+  remain for the later milestones.
+
+### 2026-11-23 — M5.2 adapter check installed on the Teclast P85
+
+- Added the **Проверить Vgate** entry to the Android dashboard. The native
+  screen requests BLE access on demand, scans for IOS-Vlink, validates GATT
+  channels and their properties, and waits for CCCD subscription before
+  sending `ATI\r`. It collects a bounded response, waits for the prompt and
+  Android's write callback, then closes the link. It shows setup failures,
+  supports cancellation and makes at most one retry for a transport failure.
+- Independent review caught a false success on printable error strings and
+  trailing data. A regression test reproduced the issue. The check now
+  requires an ELM327 version line, rejects unexpected trailing bytes and
+  invalidates pending permission results when the screen stops.
+- Passed `./android/gradlew -p android :app:testDebugUnitTest
+  :app:assembleDebug :app:lintDebug` (17 JVM tests, 0 lint errors and 10 warnings),
+  Android JS tests (5/5), `make test-web` (50/50), `go test ./... -count=1`,
+  `make lint` and `apksigner verify`. Offline API 37 emulator smoke at 914×411
+  checked the simulator layout, tap-only navigation, permission denial,
+  return to the simulator, scan cancellation and no-adapter timeout.
+- Installed and cold-launched `0.2.0-ble-check` via ADB on `P85_ROW`.
+  The debug APK uses `io.github.ftomza.lanos.debug` and appears as
+  **Lanos BLE Check** alongside the previous simulator, which was signed
+  with a different debug key. APK SHA-256
+  `9a9fc6f5db2afc3a71d8869d73680a5a062b7af6711ec935f151de2f54e11bb7`.
+- Physical BLE acceptance is pending. The next check is to power the Vgate
+  while parked, grant Nearby devices permission and capture the ATI version
+  or exact failure on the tablet. See [android/README.md](../android/README.md).
+
+### 2026-11-23 — M5.2 accepted on the Teclast P85
+
+- The owner ran **Проверить Vgate → Проверить адаптер** on the physical
+  tablet and confirmed that IOS-Vlink was discovered and the screen displayed
+  `ELM327 v2.3` under **Ответ ATI от IOS-Vlink**. This confirms the Android
+  BLE exchange with the adapter and completes M5.2.
+- Next milestone is M5.3. The owner requested adapter voltage from `ATRV`
+  on the dashboard alongside live RPM and coolant temperature. All three
+  readings still need physical verification on Android.
+
+### 2026-11-23 — M5.3 LIVE dashboard installed on the Teclast P85
+
+- Added explicit LIVE and simulator selection. Android reuses the checked
+  IOS-Vlink GATT link and the Go BLE setup order. Only typed read-only
+  commands can be written. PID `0100` gates RPM, coolant and speed. `ATRV`
+  runs independently and is labeled as adapter supply voltage. No reading
+  is invented when the adapter or ECU is silent.
+- RPM and speed expire after 3 seconds. Coolant and voltage expire after
+  10 seconds. Native receive times and monotonic remaining lifetimes reach
+  the shared view model. The real Go BLE test fixture decoded 892.5 RPM,
+  50 °C and 11.0 V in Android JVM tests. Those are replayed observations.
+- Independent review led to additional tests and fixes for prompts arriving
+  before subscription acknowledgement, unexpected bytes between commands,
+  exclusive GATT ownership, process-loss recovery, adapter voltage bounds
+  and clock changes. An uncertain write blocks the next write until an ELM
+  prompt is recovered or the owner confirms a physical adapter power cycle.
+- Passed `./android/gradlew -p android :app:testDebugUnitTest
+  :app:assembleDebug :app:lintDebug` (33 JVM tests, zero lint errors and
+  10 warnings), Android JS tests (7/7), `make test-web` (50/50),
+  `go test ./... -count=1`, `make lint`, and `apksigner verify`.
+- API 37 emulator at 914×411 confirmed the LIVE action, Bluetooth permission
+  grant, no-adapter timeout, hidden measurements throughout and explicit
+  return to the simulator. The first smoke attempt was interrupted by an
+  emulator System UI timeout. The rerun completed successfully.
+- Installed `0.3.0-live` via `adb -d install -r` and cold-launched **Lanos LIVE**
+  on the Teclast P85. Debug APK SHA-256
+  `6eaf294cb84d99c6372d6344dffd52deb683e40de40a4a7ded647199da47b64d`.
+  No vehicle exchange was run in this verification. Next is the parked-car
+  check of all three values in [android/README.md](../android/README.md#first-live-dashboard-check).
+
+### 2026-11-23 — Keep the Android dashboard visible
+
+- Added the owner-requested screen behavior to the dashboard window with
+  `FLAG_KEEP_SCREEN_ON`. Android keeps the display awake while the window
+  is visible and applies the normal timeout after the dashboard is hidden.
+- Built and installed `0.3.1-live` on the Teclast P85. ADB confirmed the
+  dashboard held the screen in the foreground, released it after Home and
+  held it again on return. Verified Android window ownership while
+  connected by USB. The global timeout and charging behavior were untouched.
+- Passed `:app:testDebugUnitTest :app:assembleDebug :app:lintDebug`
+  (33 JVM tests, zero lint errors and 10 warnings) and `apksigner verify`.
+  Debug APK SHA-256
+  `7966077fa93e1af76e5b45d8c436e1fcd0bc679c28929585ca4ea3029d788e8f`.
+  The next check remains M5.3 LIVE telemetry on the parked car.
+
+### 2026-11-23 — M5.3 accepted on the Teclast P85
+
+- The owner confirmed that the physical LIVE check displayed RPM, coolant
+  temperature and adapter supply voltage from `ATRV` with Vgate connected.
+  This completes the M5.3 device check. The exact readings were not recorded.
+- Later, with the tablet away from the car, a USB inspection showed LIVE
+  disconnected with dashes for all readings.
+- The next milestone is M5.4 telemetry integration. Longer operation and
+  ignition-cycle recovery still need Android verification.
+
+### 2026-11-23 — M5.4 LIVE telemetry and recovery installed on Teclast P85
+
+- Added capability-gated MAP, IAT and bank 1 short/long fuel trims for M5.5.
+  Reused the Go signal keys, units and scalar decoding. RPM, MAP and speed
+  run in rounds with at most one slower item between rounds. Signal
+  timestamps and freshness remain independent.
+- A missing initial bitmap or three failed core rounds puts the ECU in
+  standby. Fresh adapter voltage remains independent. The app checks
+  `0100` at least ten seconds apart, requires a fresh valid bitmap and
+  reinitializes after three negative sparse checks. A valid bitmap with
+  no supported monitored PID retains its unsupported status.
+- Transient BLE failures close the old link before a 1s/2s retry burst and
+  10s idle retries. A command timeout on the open link waits for both the
+  pending prompt and write completion. The existing process-safe prompt
+  fence applies across reconnects. Leaving LIVE cancels retries and polling.
+- Independent review led to regression tests for Android 15 GATT timeouts
+  and unqueued writes, empty supported PID lists, fast-channel starvation
+  and the spacing of `0100` checks during reinitialization.
+- Passed `:app:testDebugUnitTest :app:assembleDebug :app:lintDebug`
+  (42 JVM tests, zero lint errors and 13 warnings), Android Node tests (8/8),
+  `make test-web` (50/50), `go test ./... -count=1`, `make lint`, and
+  `apksigner verify`. API 37 emulator at 914×411 verified the explicit LIVE
+  action and permission path, no-adapter retry message and simulator return.
+- Installed and cold-launched `0.4.0-live` via USB on the Teclast P85.
+  Debug APK SHA-256
+  `6f2f9d12d2c7346f7aba299a5d150f1c4b7f6cc524504356713f8b50abbd3fb8`.
+  Real ignition and BLE recovery remain pending. Follow the
+  [Android recovery checklist](../android/README.md#check-ignition-and-ble-recovery).
+
+### 2026-11-23 — M5.4 ignition recovery verified on Teclast P85
+
+- The owner reported that LIVE readings returned after switching the
+  ignition off and back on with the M5.4 build. The elapsed time and
+  whether the BLE link also dropped were not recorded.
+- The ignition scenario passed. A controlled BLE disconnect and sleep/wake
+  remain separate physical checks. Next is M5.5, the Android fuel computer.
+
+### 2026-11-23 — Android M5.5 fuel computer and P85 layout
+
+- Added native speed-density estimates and trip accounting on a 250 ms
+  foreground tick independent of dashboard acknowledgments. Independent
+  RPM, MAP, IAT and speed expiry and generation changes bound integration.
+  Average consumption uses joint coverage from 0.1 km. Instantaneous units
+  change at 5 km/h.
+- Local, atomic state files hold separate SIM, LIVE and experimental LIVE
+  totals and factors. The dashboard has confirmed reset, full-to-full
+  preview/apply, undo and return to ×1. LIVE running-engine estimates require
+  an explicit IAT opt-in and show the input warning and low confidence.
+  The ECU command queue remains read-only.
+- Independent review and regression checks covered a missing interval at an
+  explicit reset boundary, incompatible state, and edits that invalidate an
+  in-flight calibration preview.
+- Passed `:app:testDebugUnitTest :app:assembleDebug :app:lintDebug`
+  (54 JVM tests, 0 lint errors and 13 warnings), Android JS tests (10/10),
+  `make test-web` (51/51), `go test ./... -count=1`, `make lint` and
+  `apksigner verify`. Go and Kotlin use the shared golden fixture with
+  absolute tolerance 1e-9 in the units of each compared field.
+- On the API 37 emulator at 914×411 CSS pixels, verified instantaneous
+  units, confirmed reset, periodic persistence, IAT opt-in and opt-out,
+  source isolation, background save and cold restart. Bluetooth was off.
+- The earlier layout measured 789 px of content in the P85's 712 px WebView.
+  The compact landscape layout and upward-opening settings menu fit in
+  the measured 1139×712 viewport. The final APK installed via USB and
+  cold-launched in SIM on the P85. Package `io.github.ftomza.lanos.debug`,
+  version `0.5.0-live` (6), APK SHA-256
+  `2acab56feb00f8986dc46ee56595f1b46ea8105201a6e4053fe9e6760e267175`.
+- Physical LIVE fuel behavior and fuel accuracy remain to be verified.
+  The next car check is in the
+  [Android fuel checklist](../android/README.md#проверить-топливный-компьютер).
+  M5.6 is the next implementation milestone.
+
+### 2026-11-23 — M5.5 landscape layout follow-up
+
+- Larger landscape WebViews allocate their remaining height to the main
+  instruments. The speed, RPM and fuel readings are larger, and the fuel
+  settings open above their trigger.
+- On the physical P85 (1280×800, 1139×712 CSS pixels), the simulator,
+  settings menu and a synthetic pair of warnings fit without scrolling.
+  The footer now ends 16 CSS pixels above the bottom edge, down from an
+  unused gap of 216 CSS pixels.
+- Passed the Android test, lint and debug build tasks, Android feed and web
+  tests, Go tests, `make lint` and `apksigner verify`. Installed
+  `0.5.1-live` (7) via USB and cold-launched it on the P85. APK SHA-256
+  `b087c77d1a1f50182d6fc602e7754dc1c52fe0da4525f7ddc0692e6ada94a3c3`.
+
+### 2026-11-24 — Owner road test of Android LIVE fuel
+
+- The owner reported several drives. The fuel estimate was unavailable on
+  the first drives and appeared after enabling **Оценка LIVE по IAT**.
+  The display showed **Оценка MAP/RPM/IAT · не откалибровано**. This is
+  consistent with the expected LIVE opt-in and the default factor ×1.
+- This confirms that the owner saw an experimental estimate on the P85.
+  No trip totals, coverage measurements, or independent full-to-full
+  refuelling data were provided. IAT validity and consumption accuracy
+  remain unverified.
+
+### 2026-11-24 — M5.6 foreground LIVE journal and export
+
+- Android records private JSONL sessions from the native foreground tick.
+  One-second samples keep value, age, support and freshness for RPM, MAP,
+  IAT, speed, coolant and adapter supply. Immediate events record connection
+  stages, signal generations, fuel coverage gaps, recovery, and local fuel
+  changes. The record excludes raw ECU replies and identifying fields.
+- The writer retains the newest 24 parts up to 2 MiB each. **Журнал LIVE**
+  in fuel settings closes the current session and opens the file list.
+  The Android document picker exports a chosen part. See the
+  [journal instructions](../android/README.md#журнал-live-и-экспорт-jsonl).
+- Independent review led to regression checks for a denied Bluetooth
+  permission, generation changes between native ticks, and bounded queued
+  session operations. Kotlin and JS tests passed (62 JVM, 10 Android JS,
+  51 web). The commands were `:app:testDebugUnitTest :app:assembleDebug
+  :app:lintDebug`, `node --test android/tests/feed.test.mjs`, `make test-web`,
+  `go test ./... -count=1`, `make lint`, and `apksigner verify`. Android lint
+  reported zero errors and 14 warnings.
+- API 37 emulator testing with Bluetooth disabled verified permission
+  denial, session creation and closure, sleep/wake, missing sensor values,
+  isolation from SIM and byte-for-byte export through the document picker.
+  Installed and cold-launched `0.6.0-live` (8) via USB on the P85. In SIM,
+  the settings menu fit, the empty journal opened, and Back returned to
+  the dashboard. APK SHA-256
+  `e37cc0304ee4b498892c8013ec32f2bd274e63d8b669a201d870fce410f3ec01`.
+- Next physical checks are ignition cycling with the dashboard open,
+  controlled BLE loss, and sleep/wake on the P85 with the adapter. This
+  increment was tested without a vehicle connection.
+
+### 2026-11-24 — M5.6 parked recovery check on the P85
+
+- The owner tested ignition cycling, a connection loss and the power button
+  with `0.6.0-live`. Both LIVE journals ended with `screen_off` and parsed
+  cleanly. After ECU standby, LIVE returned after about 46 seconds and joint
+  fuel/speed coverage resumed about 6 seconds later. Fresh adapter voltage
+  was still present in parts of the standby interval.
+- In the longer loss, the app rediscovered the adapter, then twice timed
+  out after eight seconds while waiting for the previous ELM prompt. The
+  owner confirmed using **Подключить авто** and power-cycling the adapter
+  after **Ещё раз ждать** did not restore the readings. Recovery in this
+  scenario required manual intervention.
+- After waking the tablet, the next connection reached LIVE in 6.8 seconds
+  from the explicit start. In the sampled ECU and adapter outage intervals,
+  the fuel and distance counters stayed flat.
+
+### 2026-11-24 — M5.6 automatic LIVE reconnect
+
+- A disabled radio and transient GATT failures use the existing foreground
+  retry schedule. When LIVE was explicitly started, returning to the
+  dashboard after sleep or leaving the screen starts a new connection and
+  journal without a second tap. Switching to SIM cancels that intent.
+- After resubscribing on an uncertain ELM session, LIVE stays connected
+  and listens after the initial eight-second wait. A late prompt resumes
+  polling automatically. The status panel offers explicit power-cycle
+  confirmation if the adapter stays silent. The confirmation starts the
+  next connection directly and is recorded as `vgate_power_cycle_confirmed`.
+  The persisted prompt check still prevents premature ELM writes.
+- Android Gradle `:app:testDebugUnitTest :app:assembleDebug :app:lintDebug`,
+  Android JS (11), web (51), `go test ./... -count=1`, `make lint`, and
+  `apksigner verify` passed. Android reported 64 JVM tests, zero lint errors
+  and 14 warnings. API 37 emulator testing covered radio off/on, automatic
+  foreground reconnect after sleep, SIM cancellation and permission denial.
+  JVM fake GATT checks covered delayed prompts and confirmed recovery.
+- Installed and cold-launched `0.6.1-live` (9) on the Teclast P85 without
+  a vehicle connection. APK SHA-256
+  `510de172c5beeb4d119bef9b486a9170e07662b358465447d61c62dad8dd43b7`.
+  Repeat the parked BLE loss and wake scenarios with the updated build.
+
+### 2026-11-25 — Android MIL status and incident capture
+
+- The dashboard polls advertised `0101` about every five seconds and
+  displays the ECU lamp bit and DTC count for up to 15 seconds. It
+  distinguishes initial ON, a confirmed change, and a return after a gap.
+  Standby and expired or unavailable results display unknown.
+- ON triggers serialized read-only `03` and `07` on the existing BLE link.
+  The scheduler shares support slots with normal inputs. Valid empty lists,
+  codes, temporary errors, unsupported responses and interruptions are
+  independent per request. The 2026-10-29 Vgate fixture confirmed ON
+  with count zero and both lists empty in JVM replay.
+- The Android journal links MIL transitions and DTC replies with an
+  incident ID and references up to 60 s of samples before and 30 s after.
+  It includes the existing bank 1 trims. Context markers show partial
+  coverage and survive a clean close with a saturated sample queue.
+  Review regressions cover slow core responses, queue pressure, context
+  gaps and negative replies.
+- Passed `:app:testDebugUnitTest :app:assembleDebug :app:lintDebug`
+  (74 JVM tests, zero lint errors, 12 warnings),
+  `node --test android/tests/*.test.mjs` (15/15), `make test-web` (51/51),
+  `go test ./... -count=1`, `make lint` and `apksigner verify`.
+  On API 37 at 914×411 CSS pixels, tested hidden SIM badge, offline LIVE,
+  injected ON/OFF frames, expiry, standby and layout.
+- Installed and cold-launched `0.7.0-live` (10) via USB on the Teclast P85
+  and checked SIM at 1139×712 CSS pixels. APK SHA-256
+  `f3544d1fa32d1ae251797cf567b440556ddc5b9a35e3f823a294dd1b51011771`.
+  Diagnostics were not run on the actual car in this increment. The next
+  parked check is to compare MIL with the physical lamp and export a LIVE
+  journal. See the [Android instructions](../android/README.md#check-engine-и-коды-неисправностей).
+
+### 2026-11-25 — Android saved-trip history
+
+- **Журнал LIVE** groups retained JSONL parts by session and opens an
+  offline report with recorded distance, estimated fuel, average across
+  jointly observed intervals, and time coverage. Existing v1 records
+  open in place. Totals use compatible neighboring counter deltas only.
+  The shared time axis starts at the original session start, even if
+  the first part has aged out. Missing data and counter changes break
+  the relevant series.
+- Eight charts share the Canvas renderer with Go history and a cursor
+  that can jump to connection, fuel or Check Engine events. Charts keep
+  at most 1024 points per signal. The report exposes the 256-marker limit
+  and prioritizes MIL transitions. The Android document picker can still
+  export individual original JSONL parts.
+- Offline Gradle `:app:testDebugUnitTest :app:assembleDebug :app:lintDebug`
+  passed (80 JVM tests, zero lint errors and 13 warnings). Passed
+  `node --test android/tests/*.test.mjs` (17/17), `make test-web` (51/51),
+  `go test ./... -count=1`, `make lint`, and `apksigner verify`.
+- Installed `0.8.0-live` (11) via USB on the Teclast P85 and verified
+  grouped archives, trip totals, rendered charts, cursor and event jump
+  with saved recordings from SIM. Verified the export button was above
+  the Android navigation bar, selected a part and opened the system save
+  sheet. The smoke test cancelled the picker and preserved the files.
+  APK SHA-256
+  `457baca1c162debc96bc06e3707815dc6ee8eb4de7de15980168ff9025e299c3`.
+- The first launch after upgrading restored the previous LIVE screen and
+  left two adapter scan sessions without telemetry. No vehicle
+  connection was established. The final verification started and ended
+  in SIM. The parked physical MIL comparison remains pending.
+
+### 2026-11-25 — Android empty-trip cleanup
+
+- **Журнал LIVE → Удалить пустые** previews startup-only sessions and
+  asks for confirmation. It includes readable interrupted sessions
+  whose archive starts at part one. Signal readings, fuel changes,
+  diagnostic events and corrupt or missing parts protect a session
+  from cleanup. The journal worker rechecks candidates before deleting
+  their files and refreshes both the report and export lists.
+- Passed offline Gradle `:app:testDebugUnitTest :app:assembleDebug
+  :app:lintDebug` (84 JVM tests, zero lint errors, 13 warnings),
+  `node --test android/tests/*.test.mjs` (17/17), `make test-web` (51/51),
+  `go test ./... -count=1`, `make lint`, and `apksigner verify --verbose`.
+  Fixture tests cover complete, rotated and interrupted empty archives,
+  protected rows and candidates changed after preview.
+- Installed `0.8.1-live` (12) on the Teclast P85 via USB. In SIM the
+  confirmation showed five cleanup candidates. Cancelled and verified
+  the saved filenames and SHA-256 hashes before and after the preview.
+  Actual deletion was tested on fixtures. APK SHA-256
+  `138619772e5fe6dc286ce9bb7e2ac9e372a0930f6b19572038af669eb50d4b2a`.
+  The parked physical MIL comparison remains pending.
+
+### 2026-11-25 — Android offline DTC descriptions
+
+- Tapping **Check Engine** in LIVE shows the existing Mode 03 and 07
+  results for the current lamp-on episode. Both modes show their own
+  response time and status. Two successful empty lists have a distinct
+  summary. Expiry, lost connectivity and a new episode hide prior
+  live results.
+- Trip history joins saved replies by incident ID and connection
+  generation, including across part rotation. Replies with a missing
+  trigger have their own marker. Tapping an event still moves the
+  timeline cursor and expands the recorded replies. Both screens use
+  a bundled Russian catalog of 42 standard OBD-II codes and keep
+  codes absent from the catalog visible.
+- Passed offline Gradle `:app:testDebugUnitTest :app:assembleDebug
+  :app:lintDebug` (86 JVM tests, zero lint errors and 13 warnings),
+  `node --test android/tests/*.test.mjs` (20/20), `make test-web` (51/51),
+  `go test ./... -count=1`, `make lint`, and `apksigner verify --verbose`.
+- API 37 emulator checks used synthetic LIVE snapshots and a saved
+  JSONL fixture. Verified known and unknown codes, timestamps, waiting,
+  failed and empty replies, expiry, and the trip marker's details and
+  cursor. Installed `0.9.0-live` (13) on the Teclast P85 and verified the
+  LIVE dialog with synthetic snapshots, then returned to SIM.
+  No physical ECU check was run. APK SHA-256
+  `eabe362c8454d0552279270ebacb439d1aaefd91b917463b956c98a4756539f3`.
+
+### 2026-11-26 — Android recovery when the previous prompt is lost
+
+- On `0.9.0-live`, P85 logs showed successful BLE subscription followed
+  by indefinite recovery after wake at 11:45, 12:08 and 13:26 MSK.
+  The same stall appeared after BLE loss at 14:07 and 14:08 with the
+  dashboard open. Manual confirmation preceded the two latest returns
+  to LIVE by 14.0 s and 8.9 s.
+- On a new LIVE subscription, Android still waits eight seconds for
+  a late prompt. For a known unfinished non-ATI command, it then tries
+  one adapter-local ATI. It resumes initialization only after GATT
+  write completion and a complete version frame. The five-second
+  probe deadline offers manual recovery. An interrupted probe leaves a
+  persisted guard across link or process restart. A previous ATI or an
+  unknown command after a cold start uses passive recovery.
+- The journal records `vgate_ati_recovery` with `attempted`,
+  `confirmed`, or `unconfirmed`. Fake GATT tests cover lost prompts
+  on wake and disconnect, late old frames, a rejected write, ambiguous
+  previous ATI and a process restart during the probe.
+- Passed offline Gradle `:app:testDebugUnitTest :app:assembleDebug
+  :app:lintDebug` (90 JVM tests, zero lint errors and 13 warnings),
+  `node --test android/tests/*.test.mjs` (20/20), `make test-web` (51/51),
+  `go test ./... -count=1`, `make lint` and `apksigner verify --verbose`.
+- Installed `0.9.1-live` (14) over USB on the P85 and cold-launched
+  in SIM at 1139×712 CSS pixels. APK SHA-256
+  `6c58310502b9400ec08853c570ce2018ec1dde91df11c6f380110da3e18f9f26`.
+  Physical ATI recovery remains to be checked in the two parked
+  scenarios in the [Android guide](../android/README.md#check-ignition-and-ble-recovery).

@@ -77,7 +77,7 @@ func (s *oneFuelSample) Close() error { return nil }
 func TestEmbeddedFuelModulesAreServed(t *testing.T) {
 	t.Parallel()
 	s := testServer(t)
-	for _, path := range []string{"/fuel.mjs", "/fuel-controls.mjs"} {
+	for _, path := range []string{"/fuel.mjs", "/fuel-controls.mjs", "/history-chart.mjs"} {
 		out := httptest.NewRecorder()
 		s.Handler().ServeHTTP(out, httptest.NewRequest(http.MethodGet, path, nil))
 		if out.Code != http.StatusOK {

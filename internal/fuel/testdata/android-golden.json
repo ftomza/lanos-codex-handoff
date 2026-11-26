@@ -1,0 +1,24 @@
+{
+  "estimates": [
+    {"name":"sim idle","rpm":850,"map":32,"iat":20,"flow":0.9961428543666906},
+    {"name":"live disabled","rpm":2500,"map":65,"iat":35,"live":true,"reason":"unverified_iat"},
+    {"name":"live opted in","rpm":2500,"map":65,"iat":35,"live":true,"allow":true,"flow":5.661529983918411},
+    {"name":"negative valid iat","rpm":1600,"map":55,"iat":-10,"flow":3.59022706277291},
+    {"name":"invalid iat","rpm":1600,"map":55,"iat":-40,"reason":"iat_unavailable_or_out_of_range"},
+    {"name":"missing map","rpm":1600,"iat":20,"reason":"map_unavailable"},
+    {"name":"stopped no map or iat","rpm":0,"live":true,"flow":0},
+    {"name":"fresh zero rpm at expiry boundary","rpm":0,"age_ms":2999,"flow":0},
+    {"name":"expired zero rpm","rpm":0,"age_ms":3000,"reason":"rpm_unavailable"}
+  ],
+  "trip": [
+    {"ms":0,"rpm":1200,"map":40,"iat":20,"speed":36,"generation":1},
+    {"ms":1000,"rpm":2400,"map":40,"iat":20,"speed":72,"generation":1},
+    {"ms":2000,"rpm":2400,"map":40,"speed":36,"generation":1},
+    {"ms":3000,"rpm":2400,"map":40,"iat":20,"generation":1},
+    {"ms":4000,"rpm":2400,"map":40,"iat":20,"speed":36,"generation":1},
+    {"ms":5000,"rpm":2400,"map":40,"iat":20,"speed":36,"generation":2},
+    {"ms":6000,"rpm":2400,"map":40,"iat":20,"speed":36,"generation":2},
+    {"ms":10001,"rpm":2400,"map":40,"iat":20,"speed":36,"generation":2}
+  ],
+  "totals": {"liters":0.0026856792642239218,"joint_liters":0.0017090686226879498,"km":0.04,"covered_km":0.025,"observed_s":10.001,"covered_s":2,"gap_s":8.001}
+}

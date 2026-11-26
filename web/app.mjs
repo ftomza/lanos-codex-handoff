@@ -37,8 +37,9 @@ function render() {
   bars.forEach((bar, i) => bar.classList.toggle('active', i < (state.values.rpm ?? 0) / 6000 * bars.length));
   const fuel = fuelView(event, performance.now() - eventAt, transport.status);
   for (const key of ['instant', 'unit', 'average', 'liters', 'distance', 'model', 'note']) elements['fuel-' + key].textContent = fuel[key];
-  elements['fuel-reset'].disabled = !event?.fuel;
-  elements['fuel-calibrate'].disabled = !event?.fuel;
+  const canChangeFuel = Number.isSafeInteger(event?.fuel?.revision);
+  elements['fuel-reset'].disabled = !canChangeFuel;
+  elements['fuel-calibrate'].disabled = !canChangeFuel;
   elements['fuel-undo'].disabled = event?.fuel?.previous_factor == null;
   showTime('captured' , event?.captured_at);
   showTime('received', event?.received_at);
@@ -49,9 +50,16 @@ function render() {
 const feed = new Feed({
   createEventSource: () => new EventSource('/events'),
   onEvent: data => { event = data; eventAt = performance.now(); },
-  onState: state => { transport = state; render(); },
+  onState: state => {
+    if (state.channelChanged) {
+      event = null;
+      closeFuelDialogs();
+    }
+    transport = state;
+    render();
+  },
 });
-bindFuelControls(elements, () => event);
+const closeFuelDialogs = bindFuelControls(elements, () => event, feed.fuelRequest?.bind(feed));
 elements.reconnect.addEventListener('click', () => feed.start());
 window.addEventListener('pagehide', () => feed.stop());
 window.addEventListener('pageshow', e => { if (e.persisted) feed.start(); });

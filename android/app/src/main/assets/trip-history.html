@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101815">
+  <title>Поездка · Lanos</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/dtc.css">
+  <link rel="stylesheet" href="/trip-history.css">
+  <script type="module" src="/trip-history.mjs"></script>
+</head>
+<body><main class="dashboard trip-history">
+  <header class="header">
+    <div><h1>Поездка</h1><p id="trip-range" role="status">Читаем журнал…</p></div>
+    <span class="source-badge">LIVE · ИСТОРИЯ</span>
+  </header>
+  <p id="trip-error" class="warnings" role="alert" hidden></p>
+  <div id="trip-report" hidden>
+    <section class="card history-summary" aria-label="Итоги записи">
+      <div class="fuel-metrics">
+        <div><span>Записанный пробег</span><strong id="trip-distance">—</strong><small>км</small></div>
+        <div><span>Топливо, оценка</span><strong id="trip-liters">—</strong><small>л</small></div>
+        <div><span>Средний по учтённым участкам</span><strong id="trip-average">—</strong><small>л/100 км</small></div>
+        <div><span>Покрытие времени записи</span><strong id="trip-coverage">—</strong><small>%</small></div>
+      </div>
+      <p id="trip-note"></p>
+    </section>
+    <div class="trip-cursor">
+      <label for="trip-position">Время от начала записи</label>
+      <input id="trip-position" type="range" min="0" step="any" value="0">
+      <output id="trip-elapsed" for="trip-position">00:00</output>
+    </div>
+    <details id="trip-events" class="card history-table" hidden>
+      <summary>События связи и Check Engine</summary><ul id="trip-markers"></ul>
+    </details>
+    <section id="trip-charts" class="history-charts" aria-label="Графики поездки"></section>
+  </div>
+</main></body></html>

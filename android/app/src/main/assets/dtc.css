@@ -1,0 +1,8 @@
+.dtc-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.dtc-mode { padding: 12px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.dtc-mode h3 { font-size: 15px; margin: 0 0 6px; }
+.dtc-mode time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.dtc-mode p, .dtc-mode ul { margin: 8px 0 0; }
+.dtc-mode ul { padding-inline-start: 22px; }
+.dtc-mode li { margin: 4px 0; overflow-wrap: anywhere; }
+@media (max-width: 560px) { .dtc-modes { grid-template-columns: 1fr; } }

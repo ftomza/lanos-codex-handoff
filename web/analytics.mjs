@@ -1,4 +1,5 @@
-import { graphSegments, historyView, number, timeLabel } from './analytics-model.mjs';
+import { historyView, number, timeLabel } from './analytics-model.mjs';
+import { drawHistoryChart } from './history-chart.mjs';
 
 const el = Object.fromEntries([...document.querySelectorAll('[id]')].map(node => [node.id, node]));
 const charts = [ ['rpm', 'Обороты', 'об/мин'], ['speed_kmh', 'Скорость', 'км/ч'],
@@ -84,22 +85,8 @@ function render(report) {
 }
 function drawAll() { for (const [key] of charts) draw(key, lastReport?.series?.[key] ?? [], lastReport?.markers ?? []); }
 function draw(key, points, markers) {
-  const { canvas, caption } = chartNodes.get(key), lines = graphSegments(points), all = lines.flat();
-  const ratio = Math.min(devicePixelRatio || 1, 2), width = Math.max(250, canvas.clientWidth), height = 210;
-  canvas.width = width * ratio; canvas.height = height * ratio;
-  const ctx = canvas.getContext('2d'); ctx.scale(ratio, ratio); ctx.clearRect(0, 0, width, height);
-  caption.textContent = all.length ? `${all.length} сохранённых точек · разрывы не соединяются` : 'Нет применимых измерений';
-  if (!all.length) return;
-  const x0 = Math.min(...all.map(p => p.at)), x1 = Math.max(...all.map(p => p.at)), y0 = Math.min(0, ...all.map(p => p.value)), y1 = Math.max(y0 + 1, ...all.map(p => p.value));
-  const x = t => 48 + (t - x0) / Math.max(1, x1 - x0) * (width - 64), y = v => height - 30 - (v - y0) / (y1 - y0) * (height - 50);
-  ctx.strokeStyle = '#34483e'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(48, 12); ctx.lineTo(48, height - 30); ctx.lineTo(width - 16, height - 30); ctx.stroke();
-  ctx.fillStyle = '#b9c8bb'; ctx.font = '11px system-ui'; ctx.fillText(y1.toFixed(1), 2, 20); ctx.fillText(y0.toFixed(0), 8, height - 29);
-  ctx.fillText(new Date(x0).toLocaleTimeString('ru-RU'), 48, height - 8); ctx.fillText(new Date(x1).toLocaleTimeString('ru-RU'), Math.max(48, width - 78), height - 8);
-  ctx.strokeStyle = '#97d687'; ctx.fillStyle = '#97d687'; ctx.lineWidth = 1.5;
-  for (const line of lines) { ctx.beginPath(); line.forEach((p, i) => i ? ctx.lineTo(x(p.at), y(p.value)) : ctx.moveTo(x(p.at), y(p.value))); ctx.stroke(); if (line.length === 1) { ctx.beginPath(); ctx.arc(x(line[0].at), y(line[0].value), 2, 0, Math.PI * 2); ctx.fill(); } }
-  ctx.strokeStyle = '#d9aa56'; ctx.setLineDash([3, 4]);
-  for (const marker of markers) { const t = Date.parse(marker.at); if (t < x0 || t > x1 || !Number.isFinite(t)) continue; ctx.beginPath(); ctx.moveTo(x(t), 12); ctx.lineTo(x(t), height - 30); ctx.stroke(); }
-  ctx.setLineDash([]);
+  const { canvas, caption } = chartNodes.get(key);
+  drawHistoryChart(canvas, caption, points, markers);
 }
 el['history-form'].addEventListener('submit', e => { e.preventDefault(); load(false); });
 el['history-refresh'].addEventListener('click', () => load(true));

@@ -27,10 +27,11 @@ Kotlin + Android BluetoothGatt + local WebView assets reusing the existing dashb
 - Handle lifecycle, timeouts, cancellation, disconnect, bounded reconnect; no parallel OBD clients.
 - Acceptance: real Android device receives ATI from IOS-Vlink.
 
-### M5.3 ELM327 + Live RPM
+### M5.3 ELM327 + live RPM, coolant and adapter voltage
 - Reuse Go fixtures and protocol behavior: ATE0, ATL0, ATS0, ATSP0, ATI, ATDPN, 0100, 010C, 0105, 010D, ATRV; confirm exact initialization against existing implementation.
 - Parse echo, CR/LF, SEARCHING, NO DATA, STOPPED, UNABLE TO CONNECT, ?, partial notifications, timeout.
-- Acceptance: parked car shows actual RPM/ECT with LIVE and freshness status, no simulator fallback.
+- Show adapter supply voltage in volts from `ATRV` in the **Напряжение адаптера** card. Treat an invalid, missing or stale reading as unavailable.
+- Acceptance: with the car parked, the dashboard shows RPM, coolant temperature and adapter supply voltage with LIVE and freshness status. It never substitutes simulator values.
 
 ### M5.4 Telemetry integration
 - Capability-gated polling, adaptive schedule, per-signal timestamps, null/unsupported/stale distinctions; MAP, IAT, trims and supported inputs; ECU standby/ignition recovery, one shared transport.
@@ -51,4 +52,12 @@ Kotlin + Android BluetoothGatt + local WebView assets reusing the existing dashb
 - After each milestone: changed files, commands/results, limitations, run instructions, next step. Keep milestones independently reviewable.
 
 ## Immediate Codex instruction
-**Implement M5.1 only in feat/android-mvp.** Build the emulator-ready APK and report the actual build result. Do not start M5.2 until owner approval.
+M5.1 through M5.3 were accepted on the Teclast P85. The owner confirmed
+`ATI` returned `ELM327 v2.3` from IOS-Vlink and that the dashboard showed
+live RPM, coolant temperature and adapter supply voltage. On the M5.4 build
+the owner also confirmed live readings returned after an ignition cycle.
+The owner has seen an M5.5 LIVE estimate after opting in to unverified IAT.
+Accuracy and coverage remain unverified. The first M5.6 increment adds the
+[Android LIVE journal and JSONL export](../android/README.md#журнал-live-и-экспорт-jsonl).
+The remaining M5.6 work covers the physical sleep, ignition and BLE recovery checks
+and tablet hardening informed by those recordings.

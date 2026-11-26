@@ -5,7 +5,13 @@ export function retryDelay(attempt) {
 }
 
 const number = (value, digits = 0) => Number.isFinite(value) ? value.toFixed(digits) : '—';
+const waitingLabels = new Map([
+  ['ecu', ['Ожидаем ЭБУ', 'ЭБУ не отвечает']],
+  ['adapter', ['Ожидаем адаптер', 'Восстанавливаем связь с адаптером']],
+  ['synchronize', ['Ожидаем ответ ELM', 'Восстанавливаем обмен с адаптером']],
+]);
 const freshTimes = (item, serverTime, elapsedMs, ttl) => Number.isFinite(ttl) && ttl > 0 &&
+  (item?.remaining_ms === undefined || (Number.isFinite(item.remaining_ms) && elapsedMs >= 0 && elapsedMs < item.remaining_ms)) &&
   [item?.captured_at, item?.received_at].every(value => {
     const age = serverTime - Date.parse(value);
     return Number.isFinite(age) && age >= 0 && age + elapsedMs < ttl;
@@ -18,7 +24,9 @@ export function viewState(event, elapsedMs, transport) {
   if (transport !== 'open') health = !event && transport === 'connecting' ? 'connecting' : 'disconnected';
   if (health === 'connected' && !freshTimes(event, serverTime, elapsedMs, ttl)) health = 'stale';
   const fresh = health === 'connected';
+  const waiting = event?.source === 'live' && waitingLabels.has(event.standby_reason);
   const values = Object.fromEntries(['rpm', 'speed_kmh', 'coolant_c', 'voltage_v'].map(key => {
+    if (waiting && (event.standby_reason !== 'ecu' || key !== 'voltage_v')) return [key, null];
     const signal = event?.signals?.[key];
     const value = event?.signals ? signal?.value : event?.[key];
     const available = !event?.signals || (signal?.status === 'available' &&
@@ -46,7 +54,9 @@ export function presentation(event, state, transport) {
     stale: ['Данные устарели', 'Нет свежих измерений', 'Последние показания скрыты. Ожидаем обновления источника.'],
     disconnected: ['Нет связи', 'Источник недоступен', 'Показания скрыты до восстановления соединения.'],
   };
-  const [connection, title, fallback] = labels[state.health] ?? labels.disconnected;
+  const waiting = live && transport.status === 'open' ? waitingLabels.get(event?.standby_reason) : null;
+  const [connection, title, fallback] = waiting ?
+    [...waiting, event.message || waiting[1]] : labels[state.health] ?? labels.disconnected;
   let detail = fallback;
   if (transport.status === 'open' && ['connecting', 'disconnected'].includes(state.health)) {
     if (sim && state.health === 'disconnected') detail = 'Симулятор имитирует обрыв связи на 6 секунд. Восстановление автоматическое.';

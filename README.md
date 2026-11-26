@@ -23,6 +23,9 @@ supports native Go BLE GATT and Serial/SPP, using the same ELM parser. Observed
 IOS-Vlink UUIDs and physical results are in capabilities.md. Android and
 simultaneous Classic/BLE links remain unverified.
 
+The Android M5.1 app runs the dashboard and its Kotlin simulator on the device.
+Build, install and emulator instructions are in [android/README.md](android/README.md).
+
 ## Development
 
 Requires Go 1.27 or newer. Native BLE uses `tinygo.org/x/bluetooth v0.16.0` and

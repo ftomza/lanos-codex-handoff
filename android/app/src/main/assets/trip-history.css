@@ -1,0 +1,15 @@
+.trip-history { padding: 12px 24px 22px; }
+.trip-history .header { margin-bottom: 10px; }
+.trip-history h1 { letter-spacing: .4px; }
+.trip-history .history-summary { padding: 11px 18px; margin: 0 0 12px; }
+.trip-history .history-summary p, #trip-range { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+.trip-history .history-charts { gap: 12px; }
+.trip-history .history-chart { padding: 12px; }
+.trip-cursor { display: flex; align-items: center; gap: 12px; margin: 12px 0; color: var(--muted); font-size: 13px; }
+.trip-cursor input { flex: 1; min-width: 50px; min-height: 44px; accent-color: var(--green); }
+.trip-cursor output { min-width: 7ch; color: #e4f4dc; font-variant-numeric: tabular-nums; }
+#trip-events { margin: 0 0 12px; padding: 0 12px; }
+#trip-events summary { min-height: 44px; padding: 12px 0; cursor: pointer; }
+#trip-markers { list-style: none; margin: 0 0 12px; padding: 0; }
+#trip-markers button { background: transparent; border-color: var(--line); text-align: start; }
+.trip-dtc { margin: 8px 0 12px; }

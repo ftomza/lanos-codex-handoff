@@ -36,3 +36,41 @@ test('local mutations send revisioned JSON and retain server errors', async()=>{
 test('unknown source does not acquire a simulator label',()=>{
  const v=fuelView({...event,source:'unknown'},0,'open');assert.match(v.model,/UNKNOWN/);assert.equal(v.instant,'—');
 });
+
+test('editing measured liters or withdrawing confirmation cancels a pending preview', async () => {
+  const { bindFuelControls } = await import('./fuel-controls.mjs');
+  class Element extends EventTarget {
+    disabled = false;
+    checked = false;
+    open = false;
+    ownerDocument = { querySelectorAll: () => [] };
+    child = new EventTarget();
+    querySelector() { return this.child; }
+    setAttribute() {}
+    removeAttribute() {}
+    showModal() { this.open = true; }
+    close() { this.open = false; }
+    click() { this.dispatchEvent(new Event('click')); }
+  }
+  const elements = Object.fromEntries([
+    'error', 'panel', 'reset', 'reset-factor', 'reset-dialog', 'reset-confirm', 'calibrate',
+    'calibration-dialog', 'apply', 'preview-result', 'measured', 'full-to-full', 'preview', 'undo', 'default',
+  ].map(name => ['fuel-' + name, new Element()]));
+  const preview = Promise.withResolvers();
+  const operations = [];
+  bindFuelControls(elements, () => ({ fuel: { revision: 1 } }), path => {
+    operations.push(path);
+    return preview.promise;
+  });
+  elements['fuel-calibrate'].click();
+  elements['fuel-measured'].value = '4';
+  elements['fuel-full-to-full'].checked = true;
+  elements['fuel-preview'].click();
+  elements['fuel-full-to-full'].checked = false;
+  elements['fuel-full-to-full'].dispatchEvent(new Event('input'));
+  preview.resolve({ factor: 1.5, previous_factor: 1, adjusted_liters: 4, preview_token: 'old' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(elements['fuel-apply'].disabled, true);
+  elements['fuel-apply'].click();
+  assert.deepEqual(operations, ['/api/fuel/calibration/preview']);
+});

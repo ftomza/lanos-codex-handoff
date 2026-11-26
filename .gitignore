@@ -12,3 +12,9 @@
 # Optional bounded diagnostic history (private vehicle data)
 data/fuel-history/
 data/mil-events/
+
+# Android local SDK settings and Gradle outputs.
+/android/.gradle/
+/android/.kotlin/
+/android/local.properties
+/android/**/build/

@@ -1,6 +1,6 @@
 const number = (value, digits) => Number.isFinite(value) && value >= 0 ? value.toFixed(digits) : '—';
-const valid = (until, event, elapsed) => {
-  const remaining = Date.parse(until) - Date.parse(event?.server_time);
+const valid = (remainingMs, until, event, elapsed) => {
+  const remaining = remainingMs ?? Date.parse(until) - Date.parse(event?.server_time);
   return Number.isFinite(remaining) && Number.isFinite(elapsed) && elapsed >= 0 && remaining > elapsed;
 };
 const reasons = {
@@ -18,8 +18,8 @@ export function fuelView(event, elapsedMs, transport) {
   if (!f) return { instant: '—', unit: 'л/ч', average: '—', liters: '—', distance: '—', model: 'Ожидание / модуль выключен', note: 'Нет данных топливного компьютера' };
   const live = event.source === 'live';
   const connected = ['live', 'simulator'].includes(event.source) && event.health === 'connected' && transport === 'open';
-  const flowFresh = connected && f.status === 'available' && valid(f.flow_until, event, elapsedMs) && Number.isFinite(f.flow_lph) && f.flow_lph >= 0;
-  const speedFresh = connected && valid(f.speed_until, event, elapsedMs) && Number.isFinite(f.speed_kmh) && f.speed_kmh >= 0;
+  const flowFresh = connected && f.status === 'available' && valid(f.flow_remaining_ms, f.flow_until, event, elapsedMs) && Number.isFinite(f.flow_lph) && f.flow_lph >= 0;
+  const speedFresh = connected && valid(f.speed_remaining_ms, f.speed_until, event, elapsedMs) && Number.isFinite(f.speed_kmh) && f.speed_kmh >= 0;
   const perDistance = flowFresh && speedFresh && f.speed_kmh >= (f.low_speed_kmh ?? 5);
   const notes = [];
   if (f.quality) notes.push(`Входы: ${flowFresh ? f.quality : 'UNAVAILABLE'} (не оценка точности)`);
@@ -29,9 +29,10 @@ export function fuelView(event, elapsedMs, transport) {
   if (event.fuel_recording?.state === 'failed' || f.diagnostics_error) notes.push('Ошибка диагностической записи — история неполная');
   if (f.incomplete) notes.push(`Частичное покрытие: ${number(f.covered_km, 2)} км с топливом`);
   if (f.settings?.unverified_iat) notes.push('IAT не проверен');
+  if (live && flowFresh && f.confidence === 'low') notes.push('Низкая достоверность оценки');
   if (!flowFresh) notes.push(reasons[f.reason] ?? 'Мгновенный расход недоступен');
   if (!speedFresh) notes.push('Скорость недоступна');
-  if (f.persistence === 'persistence_error') notes.push('Ошибка сохранения — итоги не сохранены');
+  if (f.persistence === 'persistence_error') notes.push(f.persistence_error_label ?? 'Ошибка сохранения — итоги не сохранены');
   if (f.persistence === 'pending') notes.push('Сохранение каждые 5 с');
   const method = { speed_density: 'Оценка MAP/RPM/IAT', maf: 'Оценка MAF', direct: 'Расход ЭБУ (точность не проверена)' }[f.method] ?? 'Ожидание модели';
   const calibration = f.factor === 1 ? 'не откалибровано' : `поправка ×${number(f.factor, 3)}`;
